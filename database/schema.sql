@@ -7,6 +7,7 @@ create table perfis (
   nome text not null,
   papel text not null check (papel in ('mentor', 'mentorado')),
   avatar_url text,
+  precisa_trocar_senha boolean not null default false,
   criado_em timestamptz not null default now()
 );
 

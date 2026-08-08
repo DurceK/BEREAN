@@ -19,10 +19,15 @@ function RaizProtegida() {
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" />
       </Stack.Protected>
-      <Stack.Protected guard={!!session && perfil?.papel === 'mentor'}>
+      <Stack.Protected guard={!!session && !!perfil?.precisaTrocarSenha}>
+        <Stack.Screen name="trocar-senha" />
+      </Stack.Protected>
+      <Stack.Protected guard={!!session && !perfil?.precisaTrocarSenha && perfil?.papel === 'mentor'}>
         <Stack.Screen name="(mentor)" />
       </Stack.Protected>
-      <Stack.Protected guard={!!session && perfil?.papel === 'mentorado'}>
+      <Stack.Protected
+        guard={!!session && !perfil?.precisaTrocarSenha && perfil?.papel === 'mentorado'}
+      >
         <Stack.Screen name="(mentorado)" />
       </Stack.Protected>
     </Stack>

@@ -8,6 +8,7 @@ export type Perfil = {
   id: string;
   nome: string;
   papel: Papel;
+  precisaTrocarSenha: boolean;
 };
 
 type AuthContextValue = {
@@ -16,6 +17,7 @@ type AuthContextValue = {
   isLoading: boolean;
   entrar: (matricula: string, senha: string) => Promise<{ erro: string | null }>;
   sair: () => Promise<void>;
+  trocarSenha: (novaSenha: string) => Promise<{ erro: string | null }>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -64,12 +66,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setIsLoading(true);
       const { data } = await supabase
         .from('perfis')
-        .select('id, nome, papel')
+        .select('id, nome, papel, precisa_trocar_senha')
         .eq('id', session.user.id)
         .single();
 
       if (!cancelado) {
-        setPerfil((data as Perfil) ?? null);
+        setPerfil(
+          data
+            ? {
+                id: data.id,
+                nome: data.nome,
+                papel: data.papel,
+                precisaTrocarSenha: data.precisa_trocar_senha,
+              }
+            : null
+        );
         setIsLoading(false);
       }
     }
@@ -93,8 +104,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await supabase.auth.signOut();
   }
 
+  async function trocarSenha(novaSenha: string) {
+    const { error: erroSenha } = await supabase.auth.updateUser({ password: novaSenha });
+    if (erroSenha) {
+      return { erro: 'Não foi possível trocar a senha. Tente novamente.' };
+    }
+
+    if (perfil) {
+      const { error: erroPerfil } = await supabase
+        .from('perfis')
+        .update({ precisa_trocar_senha: false })
+        .eq('id', perfil.id);
+
+      if (erroPerfil) {
+        return { erro: 'Senha trocada, mas houve um erro ao atualizar o perfil.' };
+      }
+
+      setPerfil({ ...perfil, precisaTrocarSenha: false });
+    }
+
+    return { erro: null };
+  }
+
   return (
-    <AuthContext.Provider value={{ session, perfil, isLoading, entrar, sair }}>
+    <AuthContext.Provider value={{ session, perfil, isLoading, entrar, sair, trocarSenha }}>
       {children}
     </AuthContext.Provider>
   );

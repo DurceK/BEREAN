@@ -12,6 +12,10 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
+  if (perfil?.precisaTrocarSenha) {
+    return <Redirect href="/trocar-senha" />;
+  }
+
   if (perfil?.papel === 'mentor') {
     return <Redirect href="/(mentor)/inicio" />;
   }
