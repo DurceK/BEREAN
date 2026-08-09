@@ -19,6 +19,16 @@ create table categorias (
   criado_em timestamptz not null default now()
 );
 
+-- 2b. Matrículas: liga um mentorado a uma categoria específica.
+--     Um mentorado só vê o conteúdo de categorias em que está matriculado.
+create table matriculas (
+  id uuid primary key default gen_random_uuid(),
+  mentorado_id uuid not null references perfis (id) on delete cascade,
+  categoria_id uuid not null references categorias (id) on delete cascade,
+  criado_em timestamptz not null default now(),
+  unique (mentorado_id, categoria_id)
+);
+
 -- 3. Módulos: agrupam sessões dentro de uma categoria (ex: "Past simple")
 create table modulos (
   id uuid primary key default gen_random_uuid(),
@@ -28,38 +38,48 @@ create table modulos (
   criado_em timestamptz not null default now()
 );
 
--- 4. Sessões: a unidade de conteúdo (o "episódio" com áudio)
---    origem_audio indica como o áudio foi produzido:
---      'gravacao'  -> mentor gravou pelo próprio app
---      'upload'    -> mentor enviou um arquivo do dispositivo
---      'texto_voz' -> mentor escreveu um texto e o app lê em voz alta (voz nativa do celular, sem custo)
+-- 4. Sessões: a unidade de conteúdo (o "episódio"). O conteúdo em si
+--    (áudio/foto/vídeo) mora na tabela midias, não aqui.
 create table sessoes (
   id uuid primary key default gen_random_uuid(),
   modulo_id uuid not null references modulos (id) on delete cascade,
   titulo text not null,
   ordem integer not null default 0,
-  origem_audio text check (origem_audio in ('gravacao', 'upload', 'texto_voz')), -- nulo até o mentor adicionar o conteúdo de áudio
-  audio_url text, -- preenchido quando origem_audio é 'gravacao' ou 'upload'; nulo quando é 'texto_voz'
-  texto_origem text, -- preenchido quando origem_audio é 'texto_voz'
-  duracao_segundos integer, -- nulo quando a duração ainda não é conhecida (ex: texto_voz antes de tocar)
   data_liberacao timestamptz, -- funcionalidade futura: liberar a sessão só a partir dessa data
   criado_em timestamptz not null default now()
 );
 
--- 5. Trechos de transcrição: cada frase com o segundo em que começa/termina no áudio,
---    usado para destacar a frase certa enquanto o áudio toca (efeito "karaokê").
---    Só se aplica a sessões com áudio de verdade (gravacao/upload) — sessões do tipo
---    texto_voz destacam a palavra em tempo real usando o texto_origem direto, sem precisar desta tabela.
-create table transcricao_trechos (
+-- 5. Mídias: lista ordenada de itens de conteúdo de uma sessão (áudio, foto ou vídeo).
+--    tipo indica a origem/natureza do item:
+--      'audio_gravado' -> mentor gravou pelo próprio app
+--      'audio_upload'  -> mentor enviou um arquivo de áudio do dispositivo
+--      'audio_texto'   -> mentor escreveu um texto e o app lê em voz alta (voz nativa do celular, sem custo)
+--      'imagem'        -> foto enviada
+--      'video'         -> vídeo enviado
+create table midias (
   id uuid primary key default gen_random_uuid(),
   sessao_id uuid not null references sessoes (id) on delete cascade,
+  tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video')),
+  ordem integer not null default 0,
+  caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'
+  texto_origem text, -- só usado quando tipo = 'audio_texto'
+  duracao_segundos numeric,
+  criado_em timestamptz not null default now()
+);
+
+-- 6. Trechos de transcrição: cada frase com o segundo em que começa/termina no áudio,
+--    usado para destacar a frase certa enquanto o áudio toca (efeito "karaokê").
+--    Pertence a uma mídia específica (um áudio), já que uma sessão pode ter mais de um.
+create table transcricao_trechos (
+  id uuid primary key default gen_random_uuid(),
+  midia_id uuid not null references midias (id) on delete cascade,
   ordem integer not null,
   texto text not null,
   inicio_segundos numeric not null,
   fim_segundos numeric not null
 );
 
--- 6. Conteúdo extra: campo flexível por sessão (fórmula, imagem, quiz, prática de pronúncia...)
+-- 7. Conteúdo extra: campo flexível por sessão (fórmula, quiz, prática de pronúncia...)
 create table conteudo_extra (
   id uuid primary key default gen_random_uuid(),
   sessao_id uuid not null references sessoes (id) on delete cascade,
@@ -68,7 +88,7 @@ create table conteudo_extra (
   criado_em timestamptz not null default now()
 );
 
--- 7. Progresso: liga um mentorado a uma sessão e guarda o status/posição
+-- 8. Progresso: liga um mentorado a uma sessão e guarda o status/posição
 create table progresso (
   id uuid primary key default gen_random_uuid(),
   mentorado_id uuid not null references perfis (id) on delete cascade,

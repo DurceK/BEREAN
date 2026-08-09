@@ -8,7 +8,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Usado para escolher fotos e vídeos para as sessões.",
+        "NSCameraUsageDescription": "Usado para tirar fotos e vídeos para as sessões.",
+        "NSMicrophoneUsageDescription": "Usado para gravar áudio das sessões."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +28,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true

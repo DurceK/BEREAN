@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Text, StyleSheet, ScrollView } from 'react-native';
+import { Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { SeletorEmCascata, type ItemSelecionavel } from '../../components/SeletorEmCascata';
@@ -128,6 +129,14 @@ export default function EditarCategoria() {
         tituloModalCriar="Nova sessão"
         onCriar={criarSessao}
       />
+
+      {sessaoId && (
+        <Link href={`/(mentor)/sessao/${sessaoId}`} asChild>
+          <Pressable style={styles.botaoConteudo}>
+            <Text style={styles.botaoConteudoTexto}>Gerenciar conteúdo desta sessão</Text>
+          </Pressable>
+        </Link>
+      )}
     </ScrollView>
   );
 }
@@ -136,4 +145,12 @@ const styles = StyleSheet.create({
   fundo: { flex: 1, backgroundColor: '#121212' },
   container: { padding: 24 },
   titulo: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
+  botaoConteudo: {
+    backgroundColor: '#1db954',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  botaoConteudoTexto: { color: '#fff', fontWeight: 'bold' },
 });
