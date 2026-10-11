@@ -16,6 +16,7 @@ import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } fr
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { enviarArquivo } from '../../../lib/midias';
+import { fontes, useEstilos, useTema, type Cores } from '../../../lib/tema';
 
 type Midia = {
   id: string;
@@ -26,16 +27,18 @@ type Midia = {
 };
 
 const ROTULO_TIPO: Record<string, string> = {
-  audio_gravado: '🎙️ Áudio gravado',
-  audio_upload: '🎵 Áudio enviado',
-  audio_texto: '📝 Texto (voz)',
-  imagem: '🖼️ Foto',
-  video: '🎬 Vídeo',
+  audio_gravado: 'Áudio gravado',
+  audio_upload: 'Áudio enviado',
+  audio_texto: 'Texto lido em voz',
+  imagem: 'Foto',
+  video: 'Vídeo',
 };
 
 export default function ConteudoSessao() {
   const { sessaoId } = useLocalSearchParams<{ sessaoId: string }>();
   const { perfil } = useAuth();
+  const { cores } = useTema();
+  const styles = useEstilos(criarEstilos);
 
   const [tituloSessao, setTituloSessao] = useState('');
   const [midias, setMidias] = useState<Midia[]>([]);
@@ -218,7 +221,7 @@ export default function ConteudoSessao() {
       ))}
 
       {erro && <Text style={styles.erro}>{erro}</Text>}
-      {enviando && <ActivityIndicator style={{ marginVertical: 12 }} />}
+      {enviando && <ActivityIndicator color={cores.primaria} style={{ marginVertical: 12 }} />}
 
       <Text style={styles.secaoTitulo}>Adicionar</Text>
 
@@ -255,7 +258,7 @@ export default function ConteudoSessao() {
               value={textoVoz}
               onChangeText={setTextoVoz}
               placeholder="Digite o texto"
-              placeholderTextColor="#666"
+              placeholderTextColor={cores.textoSuave}
               multiline
               autoFocus
             />
@@ -274,53 +277,71 @@ export default function ConteudoSessao() {
   );
 }
 
-const styles = StyleSheet.create({
-  fundo: { flex: 1, backgroundColor: '#121212' },
-  container: { padding: 24 },
-  titulo: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
-  subtitulo: { color: '#999', marginBottom: 20 },
-  itemMidia: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  itemTexto: { color: '#fff', fontWeight: 'bold' },
-  itemPreview: { color: '#999', marginTop: 4 },
-  erro: { color: '#f66', marginBottom: 12 },
-  secaoTitulo: { color: '#ccc', fontWeight: 'bold', marginTop: 20, marginBottom: 8 },
-  botao: {
-    backgroundColor: '#1a1a1a',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  botaoGravando: { backgroundColor: '#5a1a1a', borderColor: '#f66' },
-  botaoTexto: { color: '#fff' },
-  modalFundo: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCaixa: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 20 },
-  modalTitulo: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    padding: 10,
-    color: '#fff',
-    marginBottom: 16,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24 },
-  modalCancelar: { color: '#999' },
-  modalSalvar: { color: '#1db954', fontWeight: 'bold' },
-});
+const criarEstilos = (c: Cores) =>
+  StyleSheet.create({
+    fundo: { flex: 1, backgroundColor: c.fundo },
+    container: { padding: 24, width: '100%', maxWidth: 720, alignSelf: 'center' },
+    titulo: { fontFamily: fontes.titulo, fontSize: 22, color: c.texto },
+    subtitulo: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4, marginBottom: 20 },
+    itemMidia: {
+      backgroundColor: c.superficie,
+      borderRadius: 8,
+      padding: 12,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: c.borda,
+    },
+    itemTexto: { fontFamily: fontes.textoForte, color: c.texto },
+    itemPreview: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4 },
+    erro: { fontFamily: fontes.texto, color: c.erro, marginBottom: 12 },
+    secaoTitulo: {
+      fontFamily: fontes.textoForte,
+      fontSize: 12,
+      color: c.destaque,
+      letterSpacing: 2,
+      textTransform: 'uppercase',
+      marginTop: 20,
+      marginBottom: 10,
+    },
+    botao: {
+      backgroundColor: c.superficie,
+      borderWidth: 1,
+      borderColor: c.borda,
+      borderRadius: 8,
+      padding: 14,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    botaoGravando: { borderColor: c.erro, borderWidth: 2 },
+    botaoTexto: { fontFamily: fontes.textoMedio, color: c.texto },
+    modalFundo: {
+      flex: 1,
+      backgroundColor: c.sobreposicao,
+      justifyContent: 'center',
+      padding: 24,
+    },
+    modalCaixa: {
+      backgroundColor: c.fundo,
+      borderRadius: 12,
+      padding: 20,
+      width: '100%',
+      maxWidth: 520,
+      alignSelf: 'center',
+    },
+    modalTitulo: { fontFamily: fontes.tituloLeve, fontSize: 18, color: c.texto, marginBottom: 12 },
+    modalInput: {
+      fontFamily: fontes.texto,
+      borderWidth: 1,
+      borderColor: c.borda,
+      borderRadius: 8,
+      padding: 10,
+      color: c.texto,
+      backgroundColor: c.superficie,
+      marginBottom: 16,
+      minHeight: 80,
+      textAlignVertical: 'top',
+    },
+    modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24 },
+    modalCancelar: { fontFamily: fontes.textoMedio, color: c.textoSuave },
+    modalSalvar: { fontFamily: fontes.textoForte, color: c.destaque },
+  });

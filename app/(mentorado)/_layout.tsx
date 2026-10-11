@@ -1,5 +1,20 @@
 import { Stack } from 'expo-router';
+import { fontes, useTema } from '../../lib/tema';
 
 export default function MentoradoLayout() {
-  return <Stack screenOptions={{ headerStyle: { backgroundColor: '#121212' }, headerTintColor: '#fff' }} />;
+  const { cores } = useTema();
+
+  return (
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: cores.fundo },
+        headerTintColor: cores.texto,
+        headerTitleStyle: { fontFamily: fontes.tituloLeve },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: cores.fundo },
+      }}
+    >
+      <Stack.Screen name="inicio" options={{ title: 'Minhas aulas' }} />
+    </Stack>
+  );
 }

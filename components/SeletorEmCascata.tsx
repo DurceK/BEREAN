@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, Modal, TextInput, StyleSheet } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { fontes, useEstilos, useTema, type Cores } from '../lib/tema';
 
 export type ItemSelecionavel = { id: string; nome: string };
 
@@ -23,6 +24,8 @@ export function SeletorEmCascata({
   tituloModalCriar,
   onCriar,
 }: Props) {
+  const { cores } = useTema();
+  const estilos = useEstilos(criarEstilos);
   const [modalAberto, setModalAberto] = useState(false);
   const [novoNome, setNovoNome] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -37,14 +40,16 @@ export function SeletorEmCascata({
   }
 
   return (
-    <View style={styles.linha}>
-      <View style={styles.campo}>
-        <Text style={styles.label}>{titulo}</Text>
-        <View style={[styles.pickerBorda, desabilitado && styles.desabilitado]}>
+    <View style={estilos.linha}>
+      <View style={estilos.campo}>
+        <Text style={estilos.label}>{titulo}</Text>
+        <View style={[estilos.pickerBorda, desabilitado && estilos.desabilitado]}>
           <Picker
             enabled={!desabilitado}
             selectedValue={valorSelecionado ?? ''}
             onValueChange={(valor) => valor && onSelecionar(String(valor))}
+            style={estilos.picker}
+            dropdownIconColor={cores.texto}
           >
             <Picker.Item label="Selecione..." value="" />
             {itens.map((item) => (
@@ -55,31 +60,32 @@ export function SeletorEmCascata({
       </View>
 
       <Pressable
-        style={[styles.botaoAdicionar, desabilitado && styles.desabilitado]}
+        style={[estilos.botaoAdicionar, desabilitado && estilos.desabilitado]}
         disabled={desabilitado}
         onPress={() => setModalAberto(true)}
+        accessibilityLabel={tituloModalCriar}
       >
-        <Text style={styles.botaoAdicionarTexto}>+</Text>
+        <Text style={estilos.botaoAdicionarTexto}>+</Text>
       </Pressable>
 
       <Modal visible={modalAberto} transparent animationType="fade">
-        <View style={styles.modalFundo}>
-          <View style={styles.modalCaixa}>
-            <Text style={styles.modalTitulo}>{tituloModalCriar}</Text>
+        <View style={estilos.modalFundo}>
+          <View style={estilos.modalCaixa}>
+            <Text style={estilos.modalTitulo}>{tituloModalCriar}</Text>
             <TextInput
-              style={styles.modalInput}
+              style={estilos.modalInput}
               value={novoNome}
               onChangeText={setNovoNome}
               placeholder="Nome"
-              placeholderTextColor="#666"
+              placeholderTextColor={cores.textoSuave}
               autoFocus
             />
-            <View style={styles.modalBotoes}>
+            <View style={estilos.modalBotoes}>
               <Pressable onPress={() => setModalAberto(false)}>
-                <Text style={styles.modalCancelar}>Cancelar</Text>
+                <Text style={estilos.modalCancelar}>Cancelar</Text>
               </Pressable>
               <Pressable onPress={confirmarCriacao} disabled={salvando}>
-                <Text style={styles.modalSalvar}>{salvando ? 'Salvando...' : 'Salvar'}</Text>
+                <Text style={estilos.modalSalvar}>{salvando ? 'Salvando...' : 'Salvar'}</Text>
               </Pressable>
             </View>
           </View>
@@ -89,44 +95,61 @@ export function SeletorEmCascata({
   );
 }
 
-const styles = StyleSheet.create({
-  linha: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
-  campo: { flex: 1 },
-  label: { color: '#ccc', marginBottom: 4 },
-  pickerBorda: {
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    backgroundColor: '#1a1a1a',
-  },
-  desabilitado: { opacity: 0.4 },
-  botaoAdicionar: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#1db954',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  botaoAdicionarTexto: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-  modalFundo: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  modalCaixa: { backgroundColor: '#1a1a1a', borderRadius: 12, padding: 20 },
-  modalTitulo: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    padding: 10,
-    color: '#fff',
-    marginBottom: 16,
-  },
-  modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24 },
-  modalCancelar: { color: '#999' },
-  modalSalvar: { color: '#1db954', fontWeight: 'bold' },
-});
+const criarEstilos = (c: Cores) =>
+  StyleSheet.create({
+    linha: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 16, gap: 8 },
+    campo: { flex: 1, minWidth: 0 },
+    label: { fontFamily: fontes.textoMedio, color: c.texto, marginBottom: 6 },
+    pickerBorda: {
+      borderWidth: 1,
+      borderColor: c.borda,
+      borderRadius: 8,
+      backgroundColor: c.superficie,
+      overflow: 'hidden',
+    },
+    picker: {
+      color: c.texto,
+      backgroundColor: c.superficie,
+      fontFamily: fontes.texto,
+      borderWidth: 0,
+      padding: 10,
+    },
+    desabilitado: { opacity: 0.4 },
+    botaoAdicionar: {
+      width: 44,
+      height: 44,
+      borderRadius: 8,
+      backgroundColor: c.primaria,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    botaoAdicionarTexto: { fontFamily: fontes.textoForte, color: c.sobrePrimaria, fontSize: 22 },
+    modalFundo: {
+      flex: 1,
+      backgroundColor: c.sobreposicao,
+      justifyContent: 'center',
+      padding: 24,
+    },
+    modalCaixa: {
+      backgroundColor: c.fundo,
+      borderRadius: 12,
+      padding: 20,
+      width: '100%',
+      maxWidth: 420,
+      alignSelf: 'center',
+    },
+    modalTitulo: { fontFamily: fontes.tituloLeve, fontSize: 18, color: c.texto, marginBottom: 12 },
+    modalInput: {
+      fontFamily: fontes.texto,
+      borderWidth: 1,
+      borderColor: c.borda,
+      borderRadius: 8,
+      padding: 10,
+      color: c.texto,
+      backgroundColor: c.superficie,
+      marginBottom: 16,
+    },
+    modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24 },
+    modalCancelar: { fontFamily: fontes.textoMedio, color: c.textoSuave },
+    modalSalvar: { fontFamily: fontes.textoForte, color: c.destaque },
+  });

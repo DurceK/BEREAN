@@ -1,40 +1,55 @@
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { useAuth } from '../../lib/auth';
+import { fontes, useEstilos, type Cores } from '../../lib/tema';
 
 export default function MentorInicio() {
   const { perfil, sair } = useAuth();
+  const estilos = useEstilos(criarEstilos);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.saudacao}>Olá, {perfil?.nome}</Text>
+    <ScrollView style={estilos.fundo} contentContainerStyle={estilos.container}>
+      <Text style={estilos.rotulo}>Área do mentor</Text>
+      <Text style={estilos.saudacao}>Olá, {perfil?.nome}</Text>
 
       <Link href="/(mentor)/editar-categoria" asChild>
-        <Pressable style={styles.card}>
-          <Text style={styles.cardTitulo}>Editar categoria</Text>
-          <Text style={styles.cardDescricao}>Gerenciar categorias, módulos e sessões</Text>
+        <Pressable style={estilos.card}>
+          <Text style={estilos.cardTitulo}>Categorias</Text>
+          <Text style={estilos.cardDescricao}>
+            Crie e organize categorias, módulos e sessões, e adicione o conteúdo de cada aula.
+          </Text>
         </Pressable>
       </Link>
 
-      <Pressable onPress={sair} style={styles.sair}>
-        <Text style={styles.sairTexto}>Sair</Text>
+      <Pressable onPress={sair} style={estilos.sair}>
+        <Text style={estilos.sairTexto}>Sair</Text>
       </Pressable>
-    </View>
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#121212', padding: 24 },
-  saudacao: { fontSize: 22, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
-  card: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  cardTitulo: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  cardDescricao: { color: '#999' },
-  sair: { marginTop: 32 },
-  sairTexto: { color: '#f66' },
-});
+const criarEstilos = (c: Cores) =>
+  StyleSheet.create({
+    fundo: { flex: 1, backgroundColor: c.fundo },
+    container: { padding: 24, gap: 16, width: '100%', maxWidth: 720, alignSelf: 'center' },
+    rotulo: {
+      fontFamily: fontes.textoForte,
+      fontSize: 12,
+      color: c.destaque,
+      letterSpacing: 2,
+      textTransform: 'uppercase',
+    },
+    saudacao: { fontFamily: fontes.titulo, fontSize: 24, color: c.texto, marginBottom: 8 },
+    card: {
+      backgroundColor: c.superficie,
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 1,
+      borderColor: c.borda,
+      gap: 6,
+    },
+    cardTitulo: { fontFamily: fontes.tituloLeve, fontSize: 18, color: c.texto },
+    cardDescricao: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20 },
+    sair: { marginTop: 16, alignSelf: 'flex-start' },
+    sairTexto: { fontFamily: fontes.textoMedio, color: c.erro },
+  });

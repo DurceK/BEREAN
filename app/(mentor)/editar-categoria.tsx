@@ -3,10 +3,12 @@ import { Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
+import { fontes, useEstilos, type Cores } from '../../lib/tema';
 import { SeletorEmCascata, type ItemSelecionavel } from '../../components/SeletorEmCascata';
 
 export default function EditarCategoria() {
   const { perfil } = useAuth();
+  const styles = useEstilos(criarEstilos);
 
   const [categorias, setCategorias] = useState<ItemSelecionavel[]>([]);
   const [categoriaId, setCategoriaId] = useState<string | null>(null);
@@ -99,7 +101,10 @@ export default function EditarCategoria() {
 
   return (
     <ScrollView style={styles.fundo} contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Editar categoria</Text>
+      <Text style={styles.titulo}>Organize suas aulas</Text>
+      <Text style={styles.subtitulo}>
+        Escolha uma categoria, depois o módulo e a sessão. Use o + para criar um item novo.
+      </Text>
 
       <SeletorEmCascata
         titulo="Categoria"
@@ -141,16 +146,24 @@ export default function EditarCategoria() {
   );
 }
 
-const styles = StyleSheet.create({
-  fundo: { flex: 1, backgroundColor: '#121212' },
-  container: { padding: 24 },
-  titulo: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginBottom: 24 },
-  botaoConteudo: {
-    backgroundColor: '#1db954',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  botaoConteudoTexto: { color: '#fff', fontWeight: 'bold' },
-});
+const criarEstilos = (c: Cores) =>
+  StyleSheet.create({
+    fundo: { flex: 1, backgroundColor: c.fundo },
+    container: { padding: 24, width: '100%', maxWidth: 720, alignSelf: 'center' },
+    titulo: { fontFamily: fontes.titulo, fontSize: 22, color: c.texto },
+    subtitulo: {
+      fontFamily: fontes.texto,
+      color: c.textoSuave,
+      marginTop: 6,
+      marginBottom: 24,
+      lineHeight: 20,
+    },
+    botaoConteudo: {
+      backgroundColor: c.primaria,
+      borderRadius: 8,
+      padding: 14,
+      alignItems: 'center',
+      marginTop: 12,
+    },
+    botaoConteudoTexto: { fontFamily: fontes.textoForte, color: c.sobrePrimaria },
+  });

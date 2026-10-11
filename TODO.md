@@ -14,6 +14,11 @@
 
 - [ ] **Reordenar e remover mídias** de uma sessão
 
+- [ ] **Versão por cliente (ícone, nome e cores)**
+  Hoje ícone e nome ficam fixos no `app.json` e as cores no `lib/tema.ts`. Para trocar por cliente sem editar à mão a cada vez: trocar o `app.json` por um `app.config.ts` que lê uma pasta por cliente (ex: `clientes/berean-ingles/` com ícone, nome e paleta) e escolhe qual usar na hora de gerar o app.
+
 - [ ] **Migrar os scripts SQL para o Supabase CLI** (migrations versionadas) antes de vender para outras empresas
 
-- [ ] **Atualizar pacotes do Expo** (`npx expo install --check` mostrou atualizações disponíveis)
+- [x] **Atualizar pacotes do Expo** (SDK 57: expo 57.0.11 → 57.0.27 e demais pacotes)
+
+- [ ] **Revisar alertas de segurança do npm** (`npm audit` aponta 32, sendo 1 crítico). Avaliar quais afetam o app de verdade antes de rodar `npm audit fix`, que pode quebrar dependências.

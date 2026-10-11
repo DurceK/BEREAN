@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '../lib/auth';
+import { fontes, useEstilos, useTema, type Cores } from '../lib/tema';
+import { Marca } from '../components/Marca';
 
 export default function Login() {
   const { entrar } = useAuth();
+  const { cores } = useTema();
+  const estilos = useEstilos(criarEstilos);
   const [matricula, setMatricula] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -18,63 +22,76 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.titulo}>Bem-vindo de volta</Text>
-      <Text style={styles.subtitulo}>Entre para continuar suas sessões</Text>
+    <View style={estilos.container}>
+      <View style={estilos.conteudo}>
+        <Marca />
 
-      <Text style={styles.label}>Matrícula</Text>
-      <TextInput
-        style={styles.input}
-        value={matricula}
-        onChangeText={setMatricula}
-        autoCapitalize="none"
-        placeholder="Sua matrícula"
-        placeholderTextColor="#666"
-      />
+        <Text style={estilos.titulo}>Bem-vindo de volta</Text>
+        <Text style={estilos.subtitulo}>Entre para continuar suas sessões</Text>
 
-      <Text style={styles.label}>Senha</Text>
-      <TextInput
-        style={styles.input}
-        value={senha}
-        onChangeText={setSenha}
-        secureTextEntry
-        placeholder="Sua senha"
-        placeholderTextColor="#666"
-      />
+        <Text style={estilos.label}>Matrícula</Text>
+        <TextInput
+          style={estilos.input}
+          value={matricula}
+          onChangeText={setMatricula}
+          autoCapitalize="none"
+          placeholder="Sua matrícula"
+          placeholderTextColor={cores.textoSuave}
+        />
 
-      {erro && <Text style={styles.erro}>{erro}</Text>}
+        <Text style={estilos.label}>Senha</Text>
+        <TextInput
+          style={estilos.input}
+          value={senha}
+          onChangeText={setSenha}
+          secureTextEntry
+          placeholder="Sua senha"
+          placeholderTextColor={cores.textoSuave}
+        />
 
-      <Pressable style={styles.botao} onPress={handleEntrar} disabled={carregando}>
-        {carregando ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.botaoTexto}>Entrar</Text>
-        )}
-      </Pressable>
+        {erro && <Text style={estilos.erro}>{erro}</Text>}
+
+        <Pressable style={estilos.botao} onPress={handleEntrar} disabled={carregando}>
+          {carregando ? (
+            <ActivityIndicator color={cores.sobrePrimaria} />
+          ) : (
+            <Text style={estilos.botaoTexto}>Entrar</Text>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#121212' },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
-  subtitulo: { color: '#999', marginBottom: 24 },
-  label: { color: '#ccc', marginBottom: 4, marginTop: 12 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    backgroundColor: '#1a1a1a',
-  },
-  erro: { color: '#f66', marginTop: 12 },
-  botao: {
-    backgroundColor: '#1db954',
-    borderRadius: 8,
-    padding: 14,
-    alignItems: 'center',
-    marginTop: 24,
-  },
-  botaoTexto: { color: '#fff', fontWeight: 'bold' },
-});
+const criarEstilos = (c: Cores) =>
+  StyleSheet.create({
+    container: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: c.fundo },
+    conteudo: { width: '100%', maxWidth: 420, alignSelf: 'center' },
+    titulo: { fontFamily: fontes.tituloLeve, fontSize: 20, color: c.texto, textAlign: 'center' },
+    subtitulo: {
+      fontFamily: fontes.texto,
+      color: c.textoSuave,
+      marginTop: 4,
+      marginBottom: 24,
+      textAlign: 'center',
+    },
+    label: { fontFamily: fontes.textoMedio, color: c.texto, marginBottom: 6, marginTop: 14 },
+    input: {
+      fontFamily: fontes.texto,
+      borderWidth: 1,
+      borderColor: c.borda,
+      borderRadius: 8,
+      padding: 12,
+      color: c.texto,
+      backgroundColor: c.superficie,
+    },
+    erro: { fontFamily: fontes.texto, color: c.erro, marginTop: 12 },
+    botao: {
+      backgroundColor: c.primaria,
+      borderRadius: 8,
+      padding: 14,
+      alignItems: 'center',
+      marginTop: 28,
+    },
+    botaoTexto: { fontFamily: fontes.textoForte, color: c.sobrePrimaria, letterSpacing: 1 },
+  });
