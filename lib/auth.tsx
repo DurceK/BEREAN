@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 
 export type Papel = 'mentor' | 'mentorado';
 
-export type Perfil = {
+export type Usuario = {
   id: string;
   nome: string;
   papel: Papel;
@@ -13,7 +13,7 @@ export type Perfil = {
 
 type AuthContextValue = {
   session: Session | null;
-  perfil: Perfil | null;
+  usuario: Usuario | null;
   isLoading: boolean;
   entrar: (matricula: string, senha: string) => Promise<{ erro: string | null }>;
   sair: () => Promise<void>;
@@ -36,7 +36,7 @@ export function useAuth() {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
-  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -54,10 +54,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let cancelado = false;
 
-    async function sincronizarPerfil() {
+    async function sincronizarUsuario() {
       if (!session) {
         if (!cancelado) {
-          setPerfil(null);
+          setUsuario(null);
           setIsLoading(false);
         }
         return;
@@ -65,13 +65,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       setIsLoading(true);
       const { data } = await supabase
-        .from('perfis')
+        .from('usuarios')
         .select('id, nome, papel, precisa_trocar_senha')
         .eq('id', session.user.id)
         .single();
 
       if (!cancelado) {
-        setPerfil(
+        setUsuario(
           data
             ? {
                 id: data.id,
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     }
 
-    sincronizarPerfil();
+    sincronizarUsuario();
 
     return () => {
       cancelado = true;
@@ -110,24 +110,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return { erro: 'Não foi possível trocar a senha. Tente novamente.' };
     }
 
-    if (perfil) {
-      const { error: erroPerfil } = await supabase
-        .from('perfis')
+    if (usuario) {
+      const { error: erroUsuario } = await supabase
+        .from('usuarios')
         .update({ precisa_trocar_senha: false })
-        .eq('id', perfil.id);
+        .eq('id', usuario.id);
 
-      if (erroPerfil) {
-        return { erro: 'Senha trocada, mas houve um erro ao atualizar o perfil.' };
+      if (erroUsuario) {
+        return { erro: 'Senha trocada, mas houve um erro ao atualizar o cadastro.' };
       }
 
-      setPerfil({ ...perfil, precisaTrocarSenha: false });
+      setUsuario({ ...usuario, precisaTrocarSenha: false });
     }
 
     return { erro: null };
   }
 
   return (
-    <AuthContext.Provider value={{ session, perfil, isLoading, entrar, sair, trocarSenha }}>
+    <AuthContext.Provider value={{ session, usuario, isLoading, entrar, sair, trocarSenha }}>
       {children}
     </AuthContext.Provider>
   );

@@ -16,7 +16,7 @@ export default function MentorLayout() {
     >
       <Stack.Screen name="inicio" options={{ title: 'Início' }} />
       <Stack.Screen name="editar-categoria" options={{ title: 'Categorias' }} />
-      <Stack.Screen name="sessao/[sessaoId]" options={{ title: 'Conteúdo' }} />
+      <Stack.Screen name="aula/[aulaId]" options={{ title: 'Conteúdo' }} />
     </Stack>
   );
 }

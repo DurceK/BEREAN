@@ -1,9 +1,11 @@
--- Esquema inicial do BEREAN
+-- Esquema do BEREAN
+-- Usuários se inscrevem em categorias, que têm módulos, que têm aulas, que têm mídias.
 -- Rode este arquivo no SQL Editor do painel do Supabase (Supabase Dashboard > SQL Editor > New query).
 
--- 1. Perfis: uma linha por pessoa que faz login (mentor ou mentorado)
-create table perfis (
+-- 1. Usuários: uma linha por pessoa que faz login (mentor ou mentorado)
+create table usuarios (
   id uuid primary key references auth.users (id) on delete cascade,
+  matricula text not null unique, -- cópia da matrícula de login (o login usa matricula@berean.app)
   nome text not null,
   papel text not null check (papel in ('mentor', 'mentorado')),
   avatar_url text,
@@ -14,22 +16,22 @@ create table perfis (
 -- 2. Categorias: agrupamento de mais alto nível (ex: Inglês, Vendas, Provérbios)
 create table categorias (
   id uuid primary key default gen_random_uuid(),
-  mentor_id uuid not null references perfis (id) on delete cascade,
+  mentor_id uuid not null references usuarios (id) on delete cascade,
   nome text not null,
   criado_em timestamptz not null default now()
 );
 
--- 2b. Matrículas: liga um mentorado a uma categoria específica.
---     Um mentorado só vê o conteúdo de categorias em que está matriculado.
-create table matriculas (
+-- 3. Inscrições: liga um mentorado a uma categoria.
+--    Um mentorado só vê o conteúdo das categorias em que está inscrito.
+create table inscricoes (
   id uuid primary key default gen_random_uuid(),
-  mentorado_id uuid not null references perfis (id) on delete cascade,
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
   categoria_id uuid not null references categorias (id) on delete cascade,
   criado_em timestamptz not null default now(),
   unique (mentorado_id, categoria_id)
 );
 
--- 3. Módulos: agrupam sessões dentro de uma categoria (ex: "Past simple")
+-- 4. Módulos: agrupam aulas dentro de uma categoria (ex: "Past simple")
 create table modulos (
   id uuid primary key default gen_random_uuid(),
   categoria_id uuid not null references categorias (id) on delete cascade,
@@ -38,18 +40,17 @@ create table modulos (
   criado_em timestamptz not null default now()
 );
 
--- 4. Sessões: a unidade de conteúdo (o "episódio"). O conteúdo em si
---    (áudio/foto/vídeo) mora na tabela midias, não aqui.
-create table sessoes (
+-- 5. Aulas: a unidade de conteúdo. O conteúdo em si (áudio/foto/vídeo) fica em midias.
+create table aulas (
   id uuid primary key default gen_random_uuid(),
   modulo_id uuid not null references modulos (id) on delete cascade,
   titulo text not null,
   ordem integer not null default 0,
-  data_liberacao timestamptz, -- funcionalidade futura: liberar a sessão só a partir dessa data
+  data_liberacao timestamptz, -- funcionalidade futura: liberar a aula só a partir dessa data
   criado_em timestamptz not null default now()
 );
 
--- 5. Mídias: lista ordenada de itens de conteúdo de uma sessão (áudio, foto ou vídeo).
+-- 6. Mídias: lista ordenada de itens de uma aula (áudio, foto ou vídeo).
 --    tipo indica a origem/natureza do item:
 --      'audio_gravado' -> mentor gravou pelo próprio app
 --      'audio_upload'  -> mentor enviou um arquivo de áudio do dispositivo
@@ -58,7 +59,7 @@ create table sessoes (
 --      'video'         -> vídeo enviado
 create table midias (
   id uuid primary key default gen_random_uuid(),
-  sessao_id uuid not null references sessoes (id) on delete cascade,
+  aula_id uuid not null references aulas (id) on delete cascade,
   tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video')),
   ordem integer not null default 0,
   caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'
@@ -67,10 +68,10 @@ create table midias (
   criado_em timestamptz not null default now()
 );
 
--- 6. Trechos de transcrição: cada frase com o segundo em que começa/termina no áudio,
+-- 7. Transcrições: cada linha é um trecho do áudio com o segundo em que começa e termina,
 --    usado para destacar a frase certa enquanto o áudio toca (efeito "karaokê").
---    Pertence a uma mídia específica (um áudio), já que uma sessão pode ter mais de um.
-create table transcricao_trechos (
+--    Pertence a uma mídia (um áudio), já que uma aula pode ter mais de um.
+create table transcricoes (
   id uuid primary key default gen_random_uuid(),
   midia_id uuid not null references midias (id) on delete cascade,
   ordem integer not null,
@@ -79,22 +80,13 @@ create table transcricao_trechos (
   fim_segundos numeric not null
 );
 
--- 7. Conteúdo extra: campo flexível por sessão (fórmula, quiz, prática de pronúncia...)
-create table conteudo_extra (
-  id uuid primary key default gen_random_uuid(),
-  sessao_id uuid not null references sessoes (id) on delete cascade,
-  tipo text not null,
-  dados jsonb not null default '{}'::jsonb,
-  criado_em timestamptz not null default now()
-);
-
--- 8. Progresso: liga um mentorado a uma sessão e guarda o status/posição
+-- 8. Progresso: liga um mentorado a uma aula e guarda o status/posição
 create table progresso (
   id uuid primary key default gen_random_uuid(),
-  mentorado_id uuid not null references perfis (id) on delete cascade,
-  sessao_id uuid not null references sessoes (id) on delete cascade,
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  aula_id uuid not null references aulas (id) on delete cascade,
   status text not null default 'nao_iniciado' check (status in ('nao_iniciado', 'em_andamento', 'concluido')),
   posicao_segundos numeric not null default 0,
   atualizado_em timestamptz not null default now(),
-  unique (mentorado_id, sessao_id)
+  unique (mentorado_id, aula_id)
 );

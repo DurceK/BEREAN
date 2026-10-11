@@ -27,7 +27,7 @@ export default function Login() {
         <Marca />
 
         <Text style={estilos.titulo}>Bem-vindo de volta</Text>
-        <Text style={estilos.subtitulo}>Entre para continuar suas sessões</Text>
+        <Text style={estilos.subtitulo}>Entre para continuar suas aulas</Text>
 
         <Text style={estilos.label}>Matrícula</Text>
         <TextInput

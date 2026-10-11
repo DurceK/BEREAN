@@ -4,19 +4,19 @@ import { useAuth } from '../../lib/auth';
 import { fontes, useEstilos, type Cores } from '../../lib/tema';
 
 export default function MentorInicio() {
-  const { perfil, sair } = useAuth();
+  const { usuario, sair } = useAuth();
   const estilos = useEstilos(criarEstilos);
 
   return (
     <ScrollView style={estilos.fundo} contentContainerStyle={estilos.container}>
       <Text style={estilos.rotulo}>Área do mentor</Text>
-      <Text style={estilos.saudacao}>Olá, {perfil?.nome}</Text>
+      <Text style={estilos.saudacao}>Olá, {usuario?.nome}</Text>
 
       <Link href="/(mentor)/editar-categoria" asChild>
         <Pressable style={estilos.card}>
           <Text style={estilos.cardTitulo}>Categorias</Text>
           <Text style={estilos.cardDescricao}>
-            Crie e organize categorias, módulos e sessões, e adicione o conteúdo de cada aula.
+            Crie e organize categorias, módulos e aulas, e adicione o conteúdo de cada aula.
           </Text>
         </Pressable>
       </Link>

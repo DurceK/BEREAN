@@ -4,32 +4,32 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 
-type SessaoResumo = { id: string; titulo: string; ordem: number };
-type ModuloResumo = { id: string; nome: string; ordem: number; sessoes: SessaoResumo[] };
+type AulaResumo = { id: string; titulo: string; ordem: number };
+type ModuloResumo = { id: string; nome: string; ordem: number; aulas: AulaResumo[] };
 type CategoriaResumo = { id: string; nome: string; modulos: ModuloResumo[] };
 
 export default function MentoradoInicio() {
-  const { perfil, sair } = useAuth();
+  const { usuario, sair } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
   const [categorias, setCategorias] = useState<CategoriaResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    if (!perfil) return;
+    if (!usuario) return;
 
     let cancelado = false;
 
     async function carregar() {
       const { data } = await supabase
-        .from('matriculas')
+        .from('inscricoes')
         .select(
           `categoria:categorias (
             id, nome,
-            modulos ( id, nome, ordem, sessoes ( id, titulo, ordem ) )
+            modulos ( id, nome, ordem, aulas ( id, titulo, ordem ) )
           )`
         )
-        .eq('mentorado_id', perfil!.id);
+        .eq('mentorado_id', usuario!.id);
 
       if (!cancelado) {
         const lista = (data ?? [])
@@ -41,7 +41,7 @@ export default function MentoradoInicio() {
               .sort((a, b) => a.ordem - b.ordem)
               .map((modulo) => ({
                 ...modulo,
-                sessoes: [...modulo.sessoes].sort((a, b) => a.ordem - b.ordem),
+                aulas: [...modulo.aulas].sort((a, b) => a.ordem - b.ordem),
               })),
           }));
         setCategorias(lista);
@@ -54,18 +54,18 @@ export default function MentoradoInicio() {
     return () => {
       cancelado = true;
     };
-  }, [perfil]);
+  }, [usuario]);
 
   return (
     <ScrollView style={styles.fundo} contentContainerStyle={styles.container}>
       <Text style={styles.rotulo}>Continue de onde parou</Text>
-      <Text style={styles.saudacao}>Olá, {perfil?.nome}</Text>
+      <Text style={styles.saudacao}>Olá, {usuario?.nome}</Text>
 
       {carregando && <ActivityIndicator color={cores.primaria} style={{ marginTop: 24 }} />}
 
       {!carregando && categorias.length === 0 && (
         <Text style={styles.aviso}>
-          Você ainda não está matriculado em nenhuma categoria. Fale com seu mentor.
+          Você ainda não está inscrito em nenhuma categoria. Fale com seu mentor.
         </Text>
       )}
 
@@ -77,9 +77,9 @@ export default function MentoradoInicio() {
             <View key={modulo.id} style={styles.modulo}>
               <Text style={styles.moduloTitulo}>{modulo.nome}</Text>
 
-              {modulo.sessoes.map((sessao) => (
-                <View key={sessao.id} style={styles.sessao}>
-                  <Text style={styles.sessaoTitulo}>{sessao.titulo}</Text>
+              {modulo.aulas.map((aula) => (
+                <View key={aula.id} style={styles.aula}>
+                  <Text style={styles.aulaTitulo}>{aula.titulo}</Text>
                 </View>
               ))}
             </View>
@@ -119,7 +119,7 @@ const criarEstilos = (c: Cores) =>
     },
     modulo: { marginBottom: 16 },
     moduloTitulo: { fontFamily: fontes.textoForte, color: c.textoSuave, marginBottom: 8 },
-    sessao: {
+    aula: {
       backgroundColor: c.superficie,
       borderRadius: 8,
       padding: 14,
@@ -127,7 +127,7 @@ const criarEstilos = (c: Cores) =>
       borderWidth: 1,
       borderColor: c.borda,
     },
-    sessaoTitulo: { fontFamily: fontes.textoMedio, color: c.texto },
+    aulaTitulo: { fontFamily: fontes.textoMedio, color: c.texto },
     sair: { marginTop: 16, alignSelf: 'flex-start' },
     sairTexto: { fontFamily: fontes.textoMedio, color: c.erro },
   });

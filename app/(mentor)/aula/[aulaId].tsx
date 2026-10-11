@@ -34,13 +34,13 @@ const ROTULO_TIPO: Record<string, string> = {
   video: 'Vídeo',
 };
 
-export default function ConteudoSessao() {
-  const { sessaoId } = useLocalSearchParams<{ sessaoId: string }>();
-  const { perfil } = useAuth();
+export default function ConteudoAula() {
+  const { aulaId } = useLocalSearchParams<{ aulaId: string }>();
+  const { usuario } = useAuth();
   const { cores } = useTema();
   const styles = useEstilos(criarEstilos);
 
-  const [tituloSessao, setTituloSessao] = useState('');
+  const [tituloAula, setTituloAula] = useState('');
   const [midias, setMidias] = useState<Midia[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export default function ConteudoSessao() {
     const { data } = await supabase
       .from('midias')
       .select('id, tipo, ordem, caminho_storage, texto_origem')
-      .eq('sessao_id', sessaoId)
+      .eq('aula_id', aulaId)
       .order('ordem');
     setMidias(data ?? []);
   }
@@ -64,17 +64,17 @@ export default function ConteudoSessao() {
     let cancelado = false;
 
     async function carregar() {
-      const [resSessao, resMidias] = await Promise.all([
-        supabase.from('sessoes').select('titulo').eq('id', sessaoId).single(),
+      const [resAula, resMidias] = await Promise.all([
+        supabase.from('aulas').select('titulo').eq('id', aulaId).single(),
         supabase
           .from('midias')
           .select('id, tipo, ordem, caminho_storage, texto_origem')
-          .eq('sessao_id', sessaoId)
+          .eq('aula_id', aulaId)
           .order('ordem'),
       ]);
 
       if (!cancelado) {
-        setTituloSessao(resSessao.data?.titulo ?? '');
+        setTituloAula(resAula.data?.titulo ?? '');
         setMidias(resMidias.data ?? []);
       }
     }
@@ -84,12 +84,12 @@ export default function ConteudoSessao() {
     return () => {
       cancelado = true;
     };
-  }, [sessaoId]);
+  }, [aulaId]);
 
   async function criarMidia(campos: Partial<Midia> & { tipo: string }) {
-    if (!perfil) return;
+    if (!usuario) return;
     const { error } = await supabase.from('midias').insert({
-      sessao_id: sessaoId,
+      aula_id: aulaId,
       ordem: midias.length,
       ...campos,
     });
@@ -123,8 +123,8 @@ export default function ConteudoSessao() {
     try {
       const caminho = await enviarArquivo(
         item.uri,
-        perfil!.id,
-        sessaoId,
+        usuario!.id,
+        aulaId,
         nomeArquivo,
         contentType
       );
@@ -147,8 +147,8 @@ export default function ConteudoSessao() {
     try {
       const caminho = await enviarArquivo(
         arquivo.uri,
-        perfil!.id,
-        sessaoId,
+        usuario!.id,
+        aulaId,
         arquivo.name,
         arquivo.mimeType ?? 'audio/mpeg'
       );
@@ -177,15 +177,15 @@ export default function ConteudoSessao() {
     setGravando(false);
 
     const uri = audioRecorder.uri;
-    if (!uri || !perfil) return;
+    if (!uri || !usuario) return;
 
     setEnviando(true);
     setErro(null);
     try {
       const caminho = await enviarArquivo(
         uri,
-        perfil.id,
-        sessaoId,
+        usuario.id,
+        aulaId,
         `gravacao-${Date.now()}.m4a`,
         'audio/m4a'
       );
@@ -206,8 +206,8 @@ export default function ConteudoSessao() {
 
   return (
     <ScrollView style={styles.fundo} contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>{tituloSessao}</Text>
-      <Text style={styles.subtitulo}>Conteúdo da sessão</Text>
+      <Text style={styles.titulo}>{tituloAula}</Text>
+      <Text style={styles.subtitulo}>Conteúdo da aula</Text>
 
       {midias.map((midia) => (
         <View key={midia.id} style={styles.itemMidia}>

@@ -7,7 +7,7 @@ import { fontes, useEstilos, type Cores } from '../../lib/tema';
 import { SeletorEmCascata, type ItemSelecionavel } from '../../components/SeletorEmCascata';
 
 export default function EditarCategoria() {
-  const { perfil } = useAuth();
+  const { usuario } = useAuth();
   const styles = useEstilos(criarEstilos);
 
   const [categorias, setCategorias] = useState<ItemSelecionavel[]>([]);
@@ -16,8 +16,8 @@ export default function EditarCategoria() {
   const [modulos, setModulos] = useState<ItemSelecionavel[]>([]);
   const [moduloId, setModuloId] = useState<string | null>(null);
 
-  const [sessoes, setSessoes] = useState<ItemSelecionavel[]>([]);
-  const [sessaoId, setSessaoId] = useState<string | null>(null);
+  const [aulas, setAulas] = useState<ItemSelecionavel[]>([]);
+  const [aulaId, setAulaId] = useState<string | null>(null);
 
   useEffect(() => {
     carregarCategorias();
@@ -37,34 +37,34 @@ export default function EditarCategoria() {
     setModulos(data ?? []);
   }
 
-  async function carregarSessoes(idModulo: string) {
+  async function carregarAulas(idModulo: string) {
     const { data } = await supabase
-      .from('sessoes')
+      .from('aulas')
       .select('id, titulo')
       .eq('modulo_id', idModulo)
       .order('ordem');
-    setSessoes((data ?? []).map((s) => ({ id: s.id, nome: s.titulo })));
+    setAulas((data ?? []).map((s) => ({ id: s.id, nome: s.titulo })));
   }
 
   async function selecionarCategoria(id: string) {
     setCategoriaId(id);
     setModuloId(null);
-    setSessoes([]);
-    setSessaoId(null);
+    setAulas([]);
+    setAulaId(null);
     await carregarModulos(id);
   }
 
   async function selecionarModulo(id: string) {
     setModuloId(id);
-    setSessaoId(null);
-    await carregarSessoes(id);
+    setAulaId(null);
+    await carregarAulas(id);
   }
 
   async function criarCategoria(nome: string) {
-    if (!perfil) return;
+    if (!usuario) return;
     const { data, error } = await supabase
       .from('categorias')
-      .insert({ nome, mentor_id: perfil.id })
+      .insert({ nome, mentor_id: usuario.id })
       .select('id, nome')
       .single();
     if (!error && data) {
@@ -86,16 +86,16 @@ export default function EditarCategoria() {
     }
   }
 
-  async function criarSessao(titulo: string) {
+  async function criarAula(titulo: string) {
     if (!moduloId) return;
     const { data, error } = await supabase
-      .from('sessoes')
-      .insert({ titulo, modulo_id: moduloId, ordem: sessoes.length })
+      .from('aulas')
+      .insert({ titulo, modulo_id: moduloId, ordem: aulas.length })
       .select('id, titulo')
       .single();
     if (!error && data) {
-      await carregarSessoes(moduloId);
-      setSessaoId(data.id);
+      await carregarAulas(moduloId);
+      setAulaId(data.id);
     }
   }
 
@@ -103,7 +103,7 @@ export default function EditarCategoria() {
     <ScrollView style={styles.fundo} contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Organize suas aulas</Text>
       <Text style={styles.subtitulo}>
-        Escolha uma categoria, depois o módulo e a sessão. Use o + para criar um item novo.
+        Escolha uma categoria, depois o módulo e a aula. Use o + para criar um item novo.
       </Text>
 
       <SeletorEmCascata
@@ -126,19 +126,19 @@ export default function EditarCategoria() {
       />
 
       <SeletorEmCascata
-        titulo="Sessão"
-        itens={sessoes}
-        valorSelecionado={sessaoId}
-        onSelecionar={setSessaoId}
+        titulo="Aula"
+        itens={aulas}
+        valorSelecionado={aulaId}
+        onSelecionar={setAulaId}
         desabilitado={!moduloId}
-        tituloModalCriar="Nova sessão"
-        onCriar={criarSessao}
+        tituloModalCriar="Nova aula"
+        onCriar={criarAula}
       />
 
-      {sessaoId && (
-        <Link href={`/(mentor)/sessao/${sessaoId}`} asChild>
+      {aulaId && (
+        <Link href={`/(mentor)/aula/${aulaId}`} asChild>
           <Pressable style={styles.botaoConteudo}>
-            <Text style={styles.botaoConteudoTexto}>Gerenciar conteúdo desta sessão</Text>
+            <Text style={styles.botaoConteudoTexto}>Gerenciar conteúdo desta aula</Text>
           </Pressable>
         </Link>
       )}

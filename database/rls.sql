@@ -1,325 +1,181 @@
 -- Regras de segurança (Row Level Security) do BEREAN
 -- Rode este arquivo DEPOIS do schema.sql, no SQL Editor do painel do Supabase.
+--
+-- Resumo das regras:
+--   - Cada usuário edita só o próprio cadastro.
+--   - O mentor cria/edita/apaga só o conteúdo das categorias dele.
+--   - O mentorado só vê categorias em que está inscrito (e tudo que há dentro delas).
+--   - O mentorado registra só o próprio progresso; o mentor vê o progresso no conteúdo dele.
 
--- Liga a segurança em todas as tabelas
-alter table perfis enable row level security;
+alter table usuarios enable row level security;
 alter table categorias enable row level security;
+alter table inscricoes enable row level security;
 alter table modulos enable row level security;
-alter table sessoes enable row level security;
-alter table matriculas enable row level security;
+alter table aulas enable row level security;
 alter table midias enable row level security;
-alter table transcricao_trechos enable row level security;
-alter table conteudo_extra enable row level security;
+alter table transcricoes enable row level security;
 alter table progresso enable row level security;
 
--- Função auxiliar: verifica se o usuário logado é um mentor.
--- "security definer" evita o problema de a própria checagem gerar um loop de segurança.
-create or replace function is_mentor()
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from perfis where id = auth.uid() and papel = 'mentor'
-  );
+-- ===== Funções auxiliares =====
+-- "security definer" faz a checagem enxergar as tabelas sem cair nas próprias regras
+-- de segurança (o que geraria um loop).
+
+create or replace function e_mentor()
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (select 1 from usuarios where id = auth.uid() and papel = 'mentor');
 $$;
 
--- ===== perfis =====
-create policy "ver o proprio perfil ou perfis de mentores"
-on perfis for select to authenticated
+create or replace function e_dono_da_categoria(categoria uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (select 1 from categorias where id = categoria and mentor_id = auth.uid());
+$$;
+
+create or replace function pode_ver_categoria(categoria uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select e_dono_da_categoria(categoria)
+    or exists (
+      select 1 from inscricoes where categoria_id = categoria and mentorado_id = auth.uid()
+    );
+$$;
+
+create or replace function categoria_do_modulo(modulo uuid)
+returns uuid language sql security definer stable set search_path = public as $$
+  select categoria_id from modulos where id = modulo;
+$$;
+
+create or replace function categoria_da_aula(aula uuid)
+returns uuid language sql security definer stable set search_path = public as $$
+  select m.categoria_id from aulas a join modulos m on m.id = a.modulo_id where a.id = aula;
+$$;
+
+create or replace function categoria_da_midia(midia uuid)
+returns uuid language sql security definer stable set search_path = public as $$
+  select categoria_da_aula(aula_id) from midias where id = midia;
+$$;
+
+-- ===== usuarios =====
+create policy "ver o proprio cadastro ou o de mentores"
+on usuarios for select to authenticated
 using (auth.uid() = id or papel = 'mentor');
 
-create policy "criar o proprio perfil"
-on perfis for insert to authenticated
+create policy "criar o proprio cadastro"
+on usuarios for insert to authenticated
 with check (auth.uid() = id);
 
-create policy "editar o proprio perfil"
-on perfis for update to authenticated
+create policy "editar o proprio cadastro"
+on usuarios for update to authenticated
 using (auth.uid() = id);
 
--- ===== matriculas =====
-create policy "mentorado ve suas matriculas"
-on matriculas for select to authenticated
-using (mentorado_id = auth.uid());
-
-create policy "mentor ve matriculas de suas categorias"
-on matriculas for select to authenticated
-using (
-  exists (select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid())
-);
-
-create policy "mentor matricula em suas categorias"
-on matriculas for insert to authenticated
-with check (
-  is_mentor() and exists (select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid())
-);
-
-create policy "mentor remove matricula de suas categorias"
-on matriculas for delete to authenticated
-using (
-  exists (select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid())
-);
-
 -- ===== categorias =====
--- Visível pro mentor dono, ou pro mentorado matriculado nela
 create policy "ver categorias"
 on categorias for select to authenticated
-using (
-  mentor_id = auth.uid()
-  or exists (select 1 from matriculas mt where mt.categoria_id = categorias.id and mt.mentorado_id = auth.uid())
-);
+using (pode_ver_categoria(id));
 
 create policy "mentor cria categorias"
 on categorias for insert to authenticated
-with check (mentor_id = auth.uid() and is_mentor());
+with check (mentor_id = auth.uid() and e_mentor());
 
 create policy "mentor edita suas categorias"
 on categorias for update to authenticated
 using (mentor_id = auth.uid());
 
-create policy "mentor remove suas categorias"
+create policy "mentor apaga suas categorias"
 on categorias for delete to authenticated
 using (mentor_id = auth.uid());
+
+-- ===== inscricoes =====
+create policy "mentorado ve suas inscricoes"
+on inscricoes for select to authenticated
+using (mentorado_id = auth.uid());
+
+create policy "mentor ve inscricoes de suas categorias"
+on inscricoes for select to authenticated
+using (e_dono_da_categoria(categoria_id));
+
+create policy "mentor inscreve em suas categorias"
+on inscricoes for insert to authenticated
+with check (e_mentor() and e_dono_da_categoria(categoria_id));
+
+create policy "mentor remove inscricoes de suas categorias"
+on inscricoes for delete to authenticated
+using (e_dono_da_categoria(categoria_id));
 
 -- ===== modulos =====
 create policy "ver modulos"
 on modulos for select to authenticated
-using (
-  exists (
-    select 1 from categorias c
-    where c.id = categoria_id
-      and (
-        c.mentor_id = auth.uid()
-        or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
-      )
-  )
-);
+using (pode_ver_categoria(categoria_id));
 
-create policy "mentor cria modulos em suas categorias"
+create policy "mentor cria modulos"
 on modulos for insert to authenticated
-with check (
-  is_mentor() and exists (
-    select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid()
-  )
-);
+with check (e_mentor() and e_dono_da_categoria(categoria_id));
 
-create policy "mentor edita modulos de suas categorias"
+create policy "mentor edita modulos"
 on modulos for update to authenticated
-using (
-  exists (
-    select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid()
-  )
-);
+using (e_dono_da_categoria(categoria_id));
 
-create policy "mentor remove modulos de suas categorias"
+create policy "mentor apaga modulos"
 on modulos for delete to authenticated
-using (
-  exists (
-    select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid()
-  )
-);
+using (e_dono_da_categoria(categoria_id));
 
--- ===== sessoes =====
-create policy "ver sessoes"
-on sessoes for select to authenticated
-using (
-  exists (
-    select 1 from modulos m
-    join categorias c on c.id = m.categoria_id
-    where m.id = modulo_id
-      and (
-        c.mentor_id = auth.uid()
-        or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
-      )
-  )
-);
+-- ===== aulas =====
+create policy "ver aulas"
+on aulas for select to authenticated
+using (pode_ver_categoria(categoria_do_modulo(modulo_id)));
 
-create policy "mentor cria sessoes em seus modulos"
-on sessoes for insert to authenticated
-with check (
-  is_mentor() and exists (
-    select 1 from modulos m
-    join categorias c on c.id = m.categoria_id
-    where m.id = modulo_id and c.mentor_id = auth.uid()
-  )
-);
+create policy "mentor cria aulas"
+on aulas for insert to authenticated
+with check (e_mentor() and e_dono_da_categoria(categoria_do_modulo(modulo_id)));
 
-create policy "mentor edita sessoes de seus modulos"
-on sessoes for update to authenticated
-using (
-  exists (
-    select 1 from modulos m
-    join categorias c on c.id = m.categoria_id
-    where m.id = modulo_id and c.mentor_id = auth.uid()
-  )
-);
+create policy "mentor edita aulas"
+on aulas for update to authenticated
+using (e_dono_da_categoria(categoria_do_modulo(modulo_id)));
 
-create policy "mentor remove sessoes de seus modulos"
-on sessoes for delete to authenticated
-using (
-  exists (
-    select 1 from modulos m
-    join categorias c on c.id = m.categoria_id
-    where m.id = modulo_id and c.mentor_id = auth.uid()
-  )
-);
+create policy "mentor apaga aulas"
+on aulas for delete to authenticated
+using (e_dono_da_categoria(categoria_do_modulo(modulo_id)));
 
 -- ===== midias =====
 create policy "ver midias"
 on midias for select to authenticated
-using (
-  exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id
-      and (
-        c.mentor_id = auth.uid()
-        or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
-      )
-  )
-);
+using (pode_ver_categoria(categoria_da_aula(aula_id)));
 
-create policy "mentor gerencia midias de suas sessoes (insert)"
+create policy "mentor cria midias"
 on midias for insert to authenticated
-with check (
-  is_mentor() and exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
+with check (e_mentor() and e_dono_da_categoria(categoria_da_aula(aula_id)));
 
-create policy "mentor gerencia midias de suas sessoes (update)"
+create policy "mentor edita midias"
 on midias for update to authenticated
-using (
-  exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
+using (e_dono_da_categoria(categoria_da_aula(aula_id)));
 
-create policy "mentor gerencia midias de suas sessoes (delete)"
+create policy "mentor apaga midias"
 on midias for delete to authenticated
-using (
-  exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
+using (e_dono_da_categoria(categoria_da_aula(aula_id)));
 
--- ===== transcricao_trechos =====
-create policy "ver transcricao"
-on transcricao_trechos for select to authenticated
-using (
-  exists (
-    select 1 from midias md
-    join sessoes s on s.id = md.sessao_id
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where md.id = midia_id
-      and (
-        c.mentor_id = auth.uid()
-        or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
-      )
-  )
-);
+-- ===== transcricoes =====
+create policy "ver transcricoes"
+on transcricoes for select to authenticated
+using (pode_ver_categoria(categoria_da_midia(midia_id)));
 
-create policy "mentor gerencia transcricao de suas midias (insert)"
-on transcricao_trechos for insert to authenticated
-with check (
-  is_mentor() and exists (
-    select 1 from midias md
-    join sessoes s on s.id = md.sessao_id
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where md.id = midia_id and c.mentor_id = auth.uid()
-  )
-);
+create policy "mentor cria transcricoes"
+on transcricoes for insert to authenticated
+with check (e_mentor() and e_dono_da_categoria(categoria_da_midia(midia_id)));
 
-create policy "mentor gerencia transcricao de suas midias (update)"
-on transcricao_trechos for update to authenticated
-using (
-  exists (
-    select 1 from midias md
-    join sessoes s on s.id = md.sessao_id
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where md.id = midia_id and c.mentor_id = auth.uid()
-  )
-);
+create policy "mentor edita transcricoes"
+on transcricoes for update to authenticated
+using (e_dono_da_categoria(categoria_da_midia(midia_id)));
 
-create policy "mentor gerencia transcricao de suas midias (delete)"
-on transcricao_trechos for delete to authenticated
-using (
-  exists (
-    select 1 from midias md
-    join sessoes s on s.id = md.sessao_id
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where md.id = midia_id and c.mentor_id = auth.uid()
-  )
-);
-
--- ===== conteudo_extra =====
-create policy "ver conteudo extra"
-on conteudo_extra for select to authenticated
-using (true);
-
-create policy "mentor gerencia conteudo extra de suas sessoes (insert)"
-on conteudo_extra for insert to authenticated
-with check (
-  is_mentor() and exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
-
-create policy "mentor gerencia conteudo extra de suas sessoes (update)"
-on conteudo_extra for update to authenticated
-using (
-  exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
-
-create policy "mentor gerencia conteudo extra de suas sessoes (delete)"
-on conteudo_extra for delete to authenticated
-using (
-  exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
+create policy "mentor apaga transcricoes"
+on transcricoes for delete to authenticated
+using (e_dono_da_categoria(categoria_da_midia(midia_id)));
 
 -- ===== progresso =====
 create policy "mentorado ve o proprio progresso"
 on progresso for select to authenticated
 using (mentorado_id = auth.uid());
 
-create policy "mentor ve progresso dos mentorados em seu conteudo"
+create policy "mentor ve o progresso no seu conteudo"
 on progresso for select to authenticated
-using (
-  exists (
-    select 1 from sessoes s
-    join modulos m on m.id = s.modulo_id
-    join categorias c on c.id = m.categoria_id
-    where s.id = sessao_id and c.mentor_id = auth.uid()
-  )
-);
+using (e_dono_da_categoria(categoria_da_aula(aula_id)));
 
 create policy "mentorado registra o proprio progresso"
 on progresso for insert to authenticated

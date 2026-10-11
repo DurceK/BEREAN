@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useAuth } from '../lib/auth';
 
 export default function Index() {
-  const { session, perfil, isLoading } = useAuth();
+  const { session, usuario, isLoading } = useAuth();
 
   if (isLoading) {
     return null;
@@ -12,15 +12,15 @@ export default function Index() {
     return <Redirect href="/login" />;
   }
 
-  if (perfil?.precisaTrocarSenha) {
+  if (usuario?.precisaTrocarSenha) {
     return <Redirect href="/trocar-senha" />;
   }
 
-  if (perfil?.papel === 'mentor') {
+  if (usuario?.papel === 'mentor') {
     return <Redirect href="/(mentor)/inicio" />;
   }
 
-  if (perfil?.papel === 'mentorado') {
+  if (usuario?.papel === 'mentorado') {
     return <Redirect href="/(mentorado)/inicio" />;
   }
 
