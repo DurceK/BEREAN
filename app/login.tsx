@@ -12,6 +12,7 @@ export default function Login() {
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [ajudaSenha, setAjudaSenha] = useState(false);
 
   async function handleEntrar() {
     setErro(null);
@@ -48,6 +49,16 @@ export default function Login() {
           placeholder="Sua senha"
           placeholderTextColor={cores.textoSuave}
         />
+
+        <Pressable style={estilos.esqueci} onPress={() => setAjudaSenha((atual) => !atual)}>
+          <Text style={estilos.esqueciTexto}>Esqueci minha senha</Text>
+        </Pressable>
+        {ajudaSenha && (
+          <Text style={estilos.ajuda}>
+            Peça ao seu mentor para redefinir sua senha. Ele vai te passar uma senha provisória, e
+            você escolhe uma nova ao entrar.
+          </Text>
+        )}
 
         {erro && <Text style={estilos.erro}>{erro}</Text>}
 
@@ -86,6 +97,9 @@ const criarEstilos = (c: Cores) =>
       backgroundColor: c.superficie,
     },
     erro: { fontFamily: fontes.texto, color: c.erro, marginTop: 12 },
+    esqueci: { alignSelf: 'flex-end', marginTop: 10, paddingVertical: 4 },
+    esqueciTexto: { fontFamily: fontes.textoMedio, fontSize: 13, color: c.destaque },
+    ajuda: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave, lineHeight: 19, marginTop: 6 },
     botao: {
       backgroundColor: c.primaria,
       borderRadius: 8,

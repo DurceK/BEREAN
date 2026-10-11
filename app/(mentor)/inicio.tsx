@@ -61,7 +61,19 @@ export default function MentorInicio() {
       />
 
       <View style={estilos.container}>
-        <Text style={estilos.secao}>Suas categorias</Text>
+        <Link href="/(mentor)/alunos" asChild>
+          <Pressable style={estilos.card}>
+            <View style={estilos.cardInfo}>
+              <Text style={estilos.cardTitulo}>Alunos</Text>
+              <Text style={estilos.cardDescricao}>
+                Cadastrar alunos, inscrever em categorias e redefinir senhas
+              </Text>
+            </View>
+            <Text style={estilos.seta}>›</Text>
+          </Pressable>
+        </Link>
+
+        <Text style={[estilos.secao, estilos.secaoEspaco]}>Suas categorias</Text>
 
         {categorias.length === 0 && (
           <Text style={estilos.aviso}>
@@ -107,6 +119,7 @@ const criarEstilos = (c: Cores) =>
       letterSpacing: 2,
       textTransform: 'uppercase',
     },
+    secaoEspaco: { marginTop: 12 },
     aviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20 },
     card: {
       flexDirection: 'row',

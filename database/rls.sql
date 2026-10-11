@@ -38,6 +38,15 @@ returns boolean language sql security definer stable set search_path = public as
     );
 $$;
 
+create or replace function e_aluno_do_mentor(aluno uuid)
+returns boolean language sql security definer stable set search_path = public as $$
+  select exists (
+    select 1 from inscricoes i
+    join categorias c on c.id = i.categoria_id
+    where i.mentorado_id = aluno and c.mentor_id = auth.uid()
+  );
+$$;
+
 create or replace function categoria_do_modulo(modulo uuid)
 returns uuid language sql security definer stable set search_path = public as $$
   select categoria_id from modulos where id = modulo;
@@ -57,6 +66,10 @@ $$;
 create policy "ver o proprio cadastro ou o de mentores"
 on usuarios for select to authenticated
 using (auth.uid() = id or papel = 'mentor');
+
+create policy "mentor ve seus alunos"
+on usuarios for select to authenticated
+using (e_aluno_do_mentor(id));
 
 create policy "criar o proprio cadastro"
 on usuarios for insert to authenticated

@@ -6,13 +6,13 @@
   A Camila acessa pelo navegador do computador para montar e manter o curso. Deve permitir:
   - [x] Editar e apagar categorias, módulos e aulas (apagar também remove os arquivos do Storage)
   - [x] Adicionar, reordenar e remover mídias de uma aula
-  - [ ] Cadastrar mentorados e inscrevê-los em categorias (precisa de Edge Function)
-  - [ ] Redefinir senha de mentorado (ver "Esqueci a senha")
+  - [x] Cadastrar mentorados e inscrevê-los em categorias (Edge Function `admin-usuarios`)
+  - [x] Redefinir senha de mentorado
+  - [x] Foto de perfil e cabeçalho de perfil nas telas iniciais
   - [ ] Publicar o painel num endereço na internet (decidido: é a área do mentor do próprio app; falta escolher a hospedagem)
 
-- [ ] **Esqueci a senha**
-      O login usa matrícula convertida em e-mail fictício (`matricula@berean.app`), então o "recuperar senha por e-mail" padrão do Supabase não chega em ninguém.
-      Caminho provável: o **mentor redefine a senha do mentorado** pelo app (gera senha provisória + marca `precisa_trocar_senha = true`). Isso exige a chave de administrador do Supabase, que nunca pode ficar no app — precisa de uma **Edge Function** no Supabase fazendo essa operação no servidor.
+- [x] **Esqueci a senha**: o link na tela de login orienta a pedir ao mentor, que redefine pela tela Alunos (senha provisória + troca obrigatória no próximo acesso). O "recuperar por e-mail" não serve porque o login usa e-mail fictício (`matricula@berean.app`).
+  - [ ] Senha esquecida do próprio mentor: hoje só pelo painel do Supabase (Authentication → Users)
 
 - [x] **Tela da aula para o mentorado**: player de áudio (±10s, velocidade), vídeo, foto, texto lido em voz com destaque da palavra, progresso (em andamento ao abrir, concluída pelo botão)
   - [ ] Transcrição sincronizada para áudio gravado/enviado (a tabela `transcricoes` existe, mas ainda não há como cadastrar os trechos)
