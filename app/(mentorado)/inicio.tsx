@@ -1,13 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Link, router, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 import { CabecalhoPerfil } from '../../components/CabecalhoPerfil';
 
 type AulaResumo = { id: string; titulo: string; ordem: number };
-type ModuloResumo = { id: string; nome: string; ordem: number; aulas: AulaResumo[] };
+type ModuloResumo = {
+  id: string;
+  nome: string;
+  ordem: number;
+  aulas: AulaResumo[];
+};
 type CategoriaResumo = { id: string; nome: string; modulos: ModuloResumo[] };
 
 export default function MentoradoInicio() {
@@ -17,6 +23,18 @@ export default function MentoradoInicio() {
   const [categorias, setCategorias] = useState<CategoriaResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [progresso, setProgresso] = useState<Record<string, string>>({});
+  // Cursos e disciplinas que o aluno deixou fechados (guardado só neste aparelho)
+  const [fechados, setFechados] = useState<Record<string, boolean>>({});
+  const chaveFechados = `berean:fechados:${usuario?.id ?? ''}`;
+
+  useEffect(() => {
+    if (!usuario) return;
+    AsyncStorage.getItem(`berean:fechados:${usuario.id}`)
+      .then((salvo) => {
+        if (salvo) setFechados(JSON.parse(salvo));
+      })
+      .catch(() => {});
+  }, [usuario]);
 
   // Recarrega o progresso toda vez que a tela volta a aparecer (ex: ao sair de uma aula)
   useFocusEffect(
@@ -80,6 +98,20 @@ export default function MentoradoInicio() {
     };
   }, [usuario]);
 
+  function alternar(id: string) {
+    setFechados((atual) => {
+      const novo = { ...atual, [id]: !atual[id] };
+      if (!novo[id]) delete novo[id];
+      AsyncStorage.setItem(chaveFechados, JSON.stringify(novo)).catch(() => {});
+      return novo;
+    });
+  }
+
+  function resumo(aulas: AulaResumo[]) {
+    const feitas = aulas.filter((a) => progresso[a.id] === 'concluido').length;
+    return `${feitas} de ${aulas.length}`;
+  }
+
   const todasAsAulas = categorias.flatMap((c) => c.modulos.flatMap((m) => m.aulas));
   const concluidas = todasAsAulas.filter((a) => progresso[a.id] === 'concluido').length;
   const emAndamento = todasAsAulas.filter((a) => progresso[a.id] === 'em_andamento').length;
@@ -114,33 +146,64 @@ export default function MentoradoInicio() {
           </Text>
         )}
 
-        {categorias.map((categoria) => (
-          <View key={categoria.id} style={styles.categoria}>
-            <Text style={styles.categoriaTitulo}>{categoria.nome}</Text>
+        {categorias.map((categoria) => {
+          const aulasDaCategoria = categoria.modulos.flatMap((m) => m.aulas);
+          const categoriaFechada = !!fechados[categoria.id];
+          return (
+            <View key={categoria.id} style={styles.categoria}>
+              <Pressable
+                style={styles.categoriaCabecalho}
+                onPress={() => alternar(categoria.id)}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: !categoriaFechada }}
+                accessibilityLabel={`${categoriaFechada ? 'Abrir' : 'Fechar'} ${categoria.nome}`}
+              >
+                <Text style={styles.categoriaTitulo}>{categoria.nome}</Text>
+                <Text style={styles.resumo}>{resumo(aulasDaCategoria)}</Text>
+                <Text style={styles.chevron}>{categoriaFechada ? '▸' : '▾'}</Text>
+              </Pressable>
 
-            {categoria.modulos.map((modulo) => (
-              <View key={modulo.id} style={styles.modulo}>
-                <Text style={styles.moduloTitulo}>{modulo.nome}</Text>
-
-                {modulo.aulas.map((aula) => {
-                  const status = progresso[aula.id];
+              {!categoriaFechada &&
+                categoria.modulos.map((modulo) => {
+                  const moduloFechado = !!fechados[modulo.id];
                   return (
-                    <Link key={aula.id} href={`/(mentorado)/assistir/${aula.id}`} asChild>
-                      <Pressable style={styles.aula}>
-                        <Text style={styles.aulaTitulo}>{aula.titulo}</Text>
-                        {status === 'concluido' && <Text style={styles.selo}>✓ Concluída</Text>}
-                        {status === 'em_andamento' && (
-                          <Text style={styles.seloSuave}>Em andamento</Text>
-                        )}
-                        <Text style={styles.seta}>›</Text>
+                    <View key={modulo.id} style={styles.modulo}>
+                      <Pressable
+                        style={styles.moduloCabecalho}
+                        onPress={() => alternar(modulo.id)}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: !moduloFechado }}
+                        accessibilityLabel={`${moduloFechado ? 'Abrir' : 'Fechar'} ${modulo.nome}`}
+                      >
+                        <Text style={styles.chevronPequeno}>{moduloFechado ? '▸' : '▾'}</Text>
+                        <Text style={styles.moduloTitulo}>{modulo.nome}</Text>
+                        <Text style={styles.resumo}>{resumo(modulo.aulas)}</Text>
                       </Pressable>
-                    </Link>
+
+                      {!moduloFechado &&
+                        modulo.aulas.map((aula) => {
+                          const status = progresso[aula.id];
+                          return (
+                            <Link key={aula.id} href={`/(mentorado)/assistir/${aula.id}`} asChild>
+                              <Pressable style={styles.aula}>
+                                <Text style={styles.aulaTitulo}>{aula.titulo}</Text>
+                                {status === 'concluido' && (
+                                  <Text style={styles.selo}>✓ Concluída</Text>
+                                )}
+                                {status === 'em_andamento' && (
+                                  <Text style={styles.seloSuave}>Em andamento</Text>
+                                )}
+                                <Text style={styles.seta}>›</Text>
+                              </Pressable>
+                            </Link>
+                          );
+                        })}
+                    </View>
                   );
                 })}
-              </View>
-            ))}
-          </View>
-        ))}
+            </View>
+          );
+        })}
       </View>
     </ScrollView>
   );
@@ -149,20 +212,68 @@ export default function MentoradoInicio() {
 const criarEstilos = (c: Cores) =>
   StyleSheet.create({
     fundo: { flex: 1, backgroundColor: c.fundo },
-    container: { padding: 24, paddingTop: 32, width: '100%', maxWidth: 720, alignSelf: 'center' },
-    aviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20, textAlign: 'center' },
-    categoria: { marginBottom: 28 },
-    categoriaTitulo: {
-      fontFamily: fontes.titulo,
-      fontSize: 20,
-      color: c.texto,
+    container: {
+      padding: 24,
+      paddingTop: 32,
+      width: '100%',
+      maxWidth: 720,
+      alignSelf: 'center',
+    },
+    aviso: {
+      fontFamily: fontes.texto,
+      color: c.textoSuave,
+      lineHeight: 20,
+      textAlign: 'center',
+    },
+    categoria: { marginBottom: 24 },
+    categoriaCabecalho: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 12,
       paddingBottom: 8,
       marginBottom: 12,
       borderBottomWidth: 1,
       borderBottomColor: c.destaque,
     },
-    modulo: { marginBottom: 16 },
-    moduloTitulo: { fontFamily: fontes.textoForte, color: c.textoSuave, marginBottom: 8 },
+    categoriaTitulo: {
+      flex: 1,
+      minWidth: 0,
+      fontFamily: fontes.titulo,
+      fontSize: 20,
+      color: c.texto,
+    },
+    resumo: {
+      fontFamily: fontes.textoMedio,
+      fontSize: 12,
+      color: c.textoSuave,
+      fontVariant: ['tabular-nums'],
+    },
+    chevron: {
+      fontSize: 16,
+      color: c.destaque,
+      width: 16,
+      textAlign: 'center',
+    },
+    modulo: { marginBottom: 12 },
+    moduloCabecalho: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      paddingVertical: 6,
+      marginBottom: 4,
+    },
+    chevronPequeno: {
+      fontSize: 13,
+      color: c.textoSuave,
+      width: 14,
+      textAlign: 'center',
+    },
+    moduloTitulo: {
+      flex: 1,
+      minWidth: 0,
+      fontFamily: fontes.textoForte,
+      color: c.textoSuave,
+    },
     aula: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -174,8 +285,17 @@ const criarEstilos = (c: Cores) =>
       borderWidth: 1,
       borderColor: c.borda,
     },
-    aulaTitulo: { flex: 1, minWidth: 0, fontFamily: fontes.textoMedio, color: c.texto },
+    aulaTitulo: {
+      flex: 1,
+      minWidth: 0,
+      fontFamily: fontes.textoMedio,
+      color: c.texto,
+    },
     selo: { fontFamily: fontes.textoForte, fontSize: 12, color: c.destaque },
-    seloSuave: { fontFamily: fontes.textoMedio, fontSize: 12, color: c.textoSuave },
+    seloSuave: {
+      fontFamily: fontes.textoMedio,
+      fontSize: 12,
+      color: c.textoSuave,
+    },
     seta: { fontFamily: fontes.textoForte, fontSize: 20, color: c.textoSuave },
   });

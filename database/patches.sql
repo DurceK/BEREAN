@@ -1,0 +1,425 @@
+-- =====================================================================
+-- PATCHES DO BANCO DO BEREAN
+-- =====================================================================
+-- Como usar: cada patch novo entra no FINAL deste arquivo, sem comentário.
+-- Copie só o patch novo e cole no SQL Editor do Supabase.
+-- Os patches já aplicados ficam comentados abaixo, só como histórico:
+-- colar o arquivo inteiro não executa nada deles.
+--
+-- Para criar o banco do zero, NÃO use este arquivo: rode schema.sql,
+-- rls.sql e storage_policies.sql (já incluem todos os patches).
+
+
+-- ===== Patch 01: origem audio opcional (JÁ APLICADO) =====
+-- -- Patch 01: torna origem_audio opcional em sessoes
+-- -- Motivo: a tela "Editar categoria" cria a sessão só com o título; a origem do áudio
+-- -- (gravação/upload/texto) é escolhida depois, numa tela futura de adicionar conteúdo.
+-- --
+-- -- Rode este arquivo no SQL Editor do Supabase (você já rodou o schema.sql original,
+-- -- que exigia esse campo — este patch corrige isso no banco que já existe).
+--
+-- alter table sessoes alter column origem_audio drop not null;
+
+-- ===== Patch 02: precisa trocar senha (JÁ APLICADO) =====
+-- -- Patch 02: obriga troca de senha no primeiro login de quem recebeu senha genérica
+-- -- Rode no SQL Editor do Supabase.
+--
+-- alter table perfis add column precisa_trocar_senha boolean not null default false;
+--
+-- -- Cátia recebeu uma senha genérica da Camila; marcar para trocar no primeiro login.
+-- update perfis set precisa_trocar_senha = true
+-- where id = 'a0a7b9e2-4197-4e6f-89a3-3c7265e5f18b';
+
+-- ===== Patch 03: midias (JÁ APLICADO) =====
+-- -- Patch 03: substitui "um áudio por sessão" por uma lista ordenada de mídias
+-- -- (áudio, foto ou vídeo), permitindo múltiplos itens por sessão em qualquer ordem.
+-- -- Rode no SQL Editor do Supabase.
+--
+-- -- 1. Remove as colunas antigas de áudio em sessoes (ficam obsoletas)
+-- alter table sessoes drop column if exists origem_audio;
+-- alter table sessoes drop column if exists audio_url;
+-- alter table sessoes drop column if exists texto_origem;
+-- alter table sessoes drop column if exists duracao_segundos;
+--
+-- -- 2. Tabela midias: cada linha é um item de conteúdo (áudio/foto/vídeo) de uma sessão
+-- create table midias (
+--   id uuid primary key default gen_random_uuid(),
+--   sessao_id uuid not null references sessoes (id) on delete cascade,
+--   tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video')),
+--   ordem integer not null default 0,
+--   caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'
+--   texto_origem text, -- só usado quando tipo = 'audio_texto'
+--   duracao_segundos numeric,
+--   criado_em timestamptz not null default now()
+-- );
+--
+-- alter table midias enable row level security;
+--
+-- create policy "ver midias"
+-- on midias for select to authenticated
+-- using (true);
+--
+-- create policy "mentor gerencia midias de suas sessoes (insert)"
+-- on midias for insert to authenticated
+-- with check (
+--   is_mentor() and exists (
+--     select 1 from sessoes s
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where s.id = sessao_id and c.mentor_id = auth.uid()
+--   )
+-- );
+--
+-- create policy "mentor gerencia midias de suas sessoes (update)"
+-- on midias for update to authenticated
+-- using (
+--   exists (
+--     select 1 from sessoes s
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where s.id = sessao_id and c.mentor_id = auth.uid()
+--   )
+-- );
+--
+-- create policy "mentor gerencia midias de suas sessoes (delete)"
+-- on midias for delete to authenticated
+-- using (
+--   exists (
+--     select 1 from sessoes s
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where s.id = sessao_id and c.mentor_id = auth.uid()
+--   )
+-- );
+--
+-- -- 3. transcricao_trechos passa a pertencer a uma mídia específica (um áudio),
+-- --    não à sessão inteira, já que agora pode haver mais de um áudio por sessão.
+-- drop policy if exists "ver transcricao" on transcricao_trechos;
+-- drop policy if exists "mentor gerencia transcricao de suas sessoes (insert)" on transcricao_trechos;
+-- drop policy if exists "mentor gerencia transcricao de suas sessoes (update)" on transcricao_trechos;
+-- drop policy if exists "mentor gerencia transcricao de suas sessoes (delete)" on transcricao_trechos;
+--
+-- alter table transcricao_trechos drop column sessao_id;
+-- alter table transcricao_trechos add column midia_id uuid not null references midias (id) on delete cascade;
+--
+-- create policy "ver transcricao"
+-- on transcricao_trechos for select to authenticated
+-- using (true);
+--
+-- create policy "mentor gerencia transcricao de suas midias (insert)"
+-- on transcricao_trechos for insert to authenticated
+-- with check (
+--   is_mentor() and exists (
+--     select 1 from midias md
+--     join sessoes s on s.id = md.sessao_id
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where md.id = midia_id and c.mentor_id = auth.uid()
+--   )
+-- );
+--
+-- create policy "mentor gerencia transcricao de suas midias (update)"
+-- on transcricao_trechos for update to authenticated
+-- using (
+--   exists (
+--     select 1 from midias md
+--     join sessoes s on s.id = md.sessao_id
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where md.id = midia_id and c.mentor_id = auth.uid()
+--   )
+-- );
+--
+-- create policy "mentor gerencia transcricao de suas midias (delete)"
+-- on transcricao_trechos for delete to authenticated
+-- using (
+--   exists (
+--     select 1 from midias md
+--     join sessoes s on s.id = md.sessao_id
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where md.id = midia_id and c.mentor_id = auth.uid()
+--   )
+-- );
+
+-- ===== Patch 04: matriculas (JÁ APLICADO) =====
+-- -- Patch 04: matrícula de mentorados em categorias
+-- -- Antes, qualquer mentorado autenticado via TUDO de TODOS os mentores (simplificação
+-- -- só aceitável enquanto existia um único mentor). Agora, um mentorado só vê o que
+-- -- estiver dentro de uma categoria em que ele foi matriculado.
+-- -- Rode no SQL Editor do Supabase.
+--
+-- create table matriculas (
+--   id uuid primary key default gen_random_uuid(),
+--   mentorado_id uuid not null references perfis (id) on delete cascade,
+--   categoria_id uuid not null references categorias (id) on delete cascade,
+--   criado_em timestamptz not null default now(),
+--   unique (mentorado_id, categoria_id)
+-- );
+--
+-- alter table matriculas enable row level security;
+--
+-- create policy "mentorado ve suas matriculas"
+-- on matriculas for select to authenticated
+-- using (mentorado_id = auth.uid());
+--
+-- create policy "mentor ve matriculas de suas categorias"
+-- on matriculas for select to authenticated
+-- using (
+--   exists (select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid())
+-- );
+--
+-- create policy "mentor matricula em suas categorias"
+-- on matriculas for insert to authenticated
+-- with check (
+--   is_mentor() and exists (select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid())
+-- );
+--
+-- create policy "mentor remove matricula de suas categorias"
+-- on matriculas for delete to authenticated
+-- using (
+--   exists (select 1 from categorias c where c.id = categoria_id and c.mentor_id = auth.uid())
+-- );
+--
+-- -- Aperta as políticas de leitura: agora exigem matrícula (ou ser o mentor dono)
+--
+-- drop policy "ver categorias" on categorias;
+-- create policy "ver categorias"
+-- on categorias for select to authenticated
+-- using (
+--   mentor_id = auth.uid()
+--   or exists (select 1 from matriculas mt where mt.categoria_id = categorias.id and mt.mentorado_id = auth.uid())
+-- );
+--
+-- drop policy "ver modulos" on modulos;
+-- create policy "ver modulos"
+-- on modulos for select to authenticated
+-- using (
+--   exists (
+--     select 1 from categorias c
+--     where c.id = categoria_id
+--       and (
+--         c.mentor_id = auth.uid()
+--         or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
+--       )
+--   )
+-- );
+--
+-- drop policy "ver sessoes" on sessoes;
+-- create policy "ver sessoes"
+-- on sessoes for select to authenticated
+-- using (
+--   exists (
+--     select 1 from modulos m
+--     join categorias c on c.id = m.categoria_id
+--     where m.id = modulo_id
+--       and (
+--         c.mentor_id = auth.uid()
+--         or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
+--       )
+--   )
+-- );
+--
+-- drop policy "ver midias" on midias;
+-- create policy "ver midias"
+-- on midias for select to authenticated
+-- using (
+--   exists (
+--     select 1 from sessoes s
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where s.id = sessao_id
+--       and (
+--         c.mentor_id = auth.uid()
+--         or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
+--       )
+--   )
+-- );
+--
+-- drop policy "ver transcricao" on transcricao_trechos;
+-- create policy "ver transcricao"
+-- on transcricao_trechos for select to authenticated
+-- using (
+--   exists (
+--     select 1 from midias md
+--     join sessoes s on s.id = md.sessao_id
+--     join modulos m on m.id = s.modulo_id
+--     join categorias c on c.id = m.categoria_id
+--     where md.id = midia_id
+--       and (
+--         c.mentor_id = auth.uid()
+--         or exists (select 1 from matriculas mt where mt.categoria_id = c.id and mt.mentorado_id = auth.uid())
+--       )
+--   )
+-- );
+--
+-- -- Matricula a Cátia na categoria "Inglês" da Camila.
+-- -- Se não retornar nenhuma linha afetada, confira se a categoria "Inglês" já existe
+-- -- (criada via a tela "Editar categoria" logada como Camila).
+-- insert into matriculas (mentorado_id, categoria_id)
+-- select 'a0a7b9e2-4197-4e6f-89a3-3c7265e5f18b', id
+-- from categorias
+-- where nome = 'Inglês' and mentor_id = '7a81c82e-78a6-4024-aa0c-c2fd9f285ac9';
+
+-- ===== Patch 05: matricula em perfis (JÁ APLICADO) =====
+-- -- Patch 05: guarda a matrícula de login numa coluna própria em perfis
+-- -- Antes, a matrícula só existia "escondida" no e-mail de login (260801@berean.app),
+-- -- na tabela interna auth.users. Esta coluna é uma cópia pra facilitar consultas.
+-- -- O login continua usando o e-mail: quem cadastrar um novo usuário precisa
+-- -- preencher os dois (e-mail no Authentication e matricula aqui).
+-- -- Rode no SQL Editor do Supabase.
+--
+-- alter table perfis add column matricula text;
+--
+-- -- Preenche a partir do e-mail de quem já existe
+-- update perfis p
+-- set matricula = split_part(u.email, '@', 1)
+-- from auth.users u
+-- where u.id = p.id;
+--
+-- alter table perfis alter column matricula set not null;
+-- alter table perfis add constraint perfis_matricula_unica unique (matricula);
+--
+-- -- Conferência
+-- select matricula, nome, papel from perfis order by papel, nome;
+
+-- ===== Patch 06: nomes simplificados (JÁ APLICADO) =====
+-- -- Patch 06: nomes de tabelas mais simples
+-- --   perfis              -> usuarios
+-- --   matriculas          -> inscricoes   (pra não confundir com a matrícula de login)
+-- --   sessoes             -> aulas        (e a coluna sessao_id vira aula_id)
+-- --   transcricao_trechos -> transcricoes
+-- --   conteudo_extra      -> apagada (não era usada)
+-- -- Os dados são preservados: só os nomes mudam.
+-- --
+-- -- COMO RODAR (no SQL Editor do Supabase):
+-- --   1. Este arquivo.
+-- --   2. Logo em seguida, o rls.sql inteiro (recria as regras de segurança com os nomes novos).
+-- --   Entre um e outro o app fica sem acesso aos dados (as regras foram apagadas e as tabelas
+-- --   estão trancadas), então rode os dois na sequência.
+--
+-- begin;
+--
+-- -- O patch 05 (coluna matricula em perfis) precisa ter sido rodado antes
+-- do $$
+-- begin
+--   if not exists (
+--     select 1 from information_schema.columns
+--     where table_schema = 'public' and table_name = 'perfis' and column_name = 'matricula'
+--   ) then
+--     raise exception 'Rode o patch_05_matricula_em_perfis.sql antes deste.';
+--   end if;
+-- end $$;
+--
+-- -- Apaga todas as regras de segurança antigas (o rls.sql recria com os nomes novos)
+-- do $$
+-- declare
+--   regra record;
+-- begin
+--   for regra in select policyname, tablename from pg_policies where schemaname = 'public' loop
+--     execute format('drop policy %I on public.%I', regra.policyname, regra.tablename);
+--   end loop;
+-- end $$;
+--
+-- drop function if exists is_mentor();
+--
+-- drop table if exists conteudo_extra;
+--
+-- alter table perfis rename to usuarios;
+-- alter table matriculas rename to inscricoes;
+-- alter table sessoes rename to aulas;
+-- alter table transcricao_trechos rename to transcricoes;
+--
+-- alter table midias rename column sessao_id to aula_id;
+-- alter table progresso rename column sessao_id to aula_id;
+--
+-- commit;
+
+-- ===== Patch 07: player mentorado (JÁ APLICADO) =====
+-- -- Patch 07: preparação para o player do mentorado
+-- -- Rode no SQL Editor do Supabase.
+--
+-- -- 1. Idioma da voz nos textos lidos em voz alta (audio_texto).
+-- --    Sem isso o celular lê inglês com voz de português. Textos antigos sem idioma
+-- --    são lidos em português.
+-- alter table midias add column idioma text check (idioma in ('pt-BR', 'en-US'));
+--
+-- -- 2. Arquivos de mídia: só lê quem pode ver a categoria da aula (dono ou inscrito).
+-- --    Antes, qualquer usuário logado lia qualquer arquivo do bucket.
+-- --    Os arquivos ficam em {mentor_id}/{aula_id}/{arquivo}; o 2º pedaço é a aula.
+-- drop policy if exists "ler arquivos de midias" on storage.objects;
+--
+-- create policy "ler arquivos das aulas que pode ver"
+-- on storage.objects for select to authenticated
+-- using (
+--   bucket_id = 'midias'
+--   and public.pode_ver_categoria(public.categoria_da_aula(((storage.foldername(name))[2])::uuid))
+-- );
+
+-- ===== Patch 08: avatares (JÁ APLICADO) =====
+-- -- Patch 08: foto de perfil (avatar)
+-- -- Rode no SQL Editor do Supabase.
+-- -- A foto fica no bucket privado "avatares", na pasta {usuario_id}/, e o caminho
+-- -- dela vai na coluna usuarios.avatar_url (que já existia, sem uso).
+--
+-- -- 1. Bucket privado, só imagens, até 5 MB
+-- insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+-- values ('avatares', 'avatares', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+-- on conflict (id) do nothing;
+--
+-- -- 2. Quem vê: a própria pessoa, qualquer mentor, e todos veem a foto dos mentores
+-- create policy "ver avatares"
+-- on storage.objects for select to authenticated
+-- using (
+--   bucket_id = 'avatares'
+--   and (
+--     (storage.foldername(name))[1] = auth.uid()::text
+--     or public.e_mentor()
+--     or exists (
+--       select 1 from public.usuarios u
+--       where u.id::text = (storage.foldername(name))[1] and u.papel = 'mentor'
+--     )
+--   )
+-- );
+--
+-- -- 3. Cada pessoa envia, troca e apaga só a própria foto
+-- create policy "enviar o proprio avatar"
+-- on storage.objects for insert to authenticated
+-- with check (bucket_id = 'avatares' and (storage.foldername(name))[1] = auth.uid()::text);
+--
+-- create policy "trocar o proprio avatar"
+-- on storage.objects for update to authenticated
+-- using (bucket_id = 'avatares' and (storage.foldername(name))[1] = auth.uid()::text);
+--
+-- create policy "apagar o proprio avatar"
+-- on storage.objects for delete to authenticated
+-- using (bucket_id = 'avatares' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ===== Patch 09: mentor ve alunos (JÁ APLICADO) =====
+-- -- Patch 09: o mentor passa a ver o cadastro dos alunos inscritos nas categorias dele
+-- -- (antes cada mentorado só era visível para si mesmo, e a tela "Alunos" ficaria vazia).
+-- -- Rode no SQL Editor do Supabase.
+--
+-- create or replace function e_aluno_do_mentor(aluno uuid)
+-- returns boolean language sql security definer stable set search_path = public as $$
+--   select exists (
+--     select 1 from inscricoes i
+--     join categorias c on c.id = i.categoria_id
+--     where i.mentorado_id = aluno and c.mentor_id = auth.uid()
+--   );
+-- $$;
+--
+-- create policy "mentor ve seus alunos"
+-- on usuarios for select to authenticated
+-- using (e_aluno_do_mentor(id));
+
+-- ===== Patch 10: titulo das midias (JÁ APLICADO) =====
+-- -- Patch 10: título opcional para cada conteúdo da aula (texto, foto, vídeo ou áudio)
+-- -- Rode no SQL Editor do Supabase.
+--
+-- alter table midias add column titulo text;
+
+
+-- =====================================================================
+-- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha
+-- =====================================================================

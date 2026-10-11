@@ -61,6 +61,7 @@ create table midias (
   id uuid primary key default gen_random_uuid(),
   aula_id uuid not null references aulas (id) on delete cascade,
   tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video')),
+  titulo text, -- opcional, mostrado acima do conteúdo
   ordem integer not null default 0,
   caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'
   texto_origem text, -- só usado quando tipo = 'audio_texto'

@@ -25,7 +25,10 @@ type Midia = {
   caminho_storage: string | null;
   texto_origem: string | null;
   idioma?: string | null;
+  titulo?: string | null;
 };
+
+const COLUNAS = 'id, tipo, ordem, caminho_storage, texto_origem, titulo';
 
 const IDIOMAS = [
   { valor: 'pt-BR', rotulo: 'Português' },
@@ -56,6 +59,10 @@ export default function ConteudoAula() {
   const [idiomaTexto, setIdiomaTexto] = useState('pt-BR');
   const [midiaParaRemover, setMidiaParaRemover] = useState<Midia | null>(null);
   const [removendo, setRemovendo] = useState(false);
+  // Título que vai junto com o próximo item adicionado
+  const [tituloNovo, setTituloNovo] = useState('');
+  const [midiaParaRenomear, setMidiaParaRenomear] = useState<Midia | null>(null);
+  const [tituloEditado, setTituloEditado] = useState('');
 
   const [gravando, setGravando] = useState(false);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -63,7 +70,7 @@ export default function ConteudoAula() {
   async function carregarMidias() {
     const { data } = await supabase
       .from('midias')
-      .select('id, tipo, ordem, caminho_storage, texto_origem')
+      .select(COLUNAS)
       .eq('aula_id', aulaId)
       .order('ordem');
     setMidias(data ?? []);
@@ -75,11 +82,7 @@ export default function ConteudoAula() {
     async function carregar() {
       const [resAula, resMidias] = await Promise.all([
         supabase.from('aulas').select('titulo').eq('id', aulaId).single(),
-        supabase
-          .from('midias')
-          .select('id, tipo, ordem, caminho_storage, texto_origem')
-          .eq('aula_id', aulaId)
-          .order('ordem'),
+        supabase.from('midias').select(COLUNAS).eq('aula_id', aulaId).order('ordem'),
       ]);
 
       if (!cancelado) {
@@ -101,13 +104,32 @@ export default function ConteudoAula() {
     const { error } = await supabase.from('midias').insert({
       aula_id: aulaId,
       ordem: proximaOrdem,
+      titulo: tituloNovo.trim() || null,
       ...campos,
     });
     if (error) {
       setErro('Não foi possível salvar o item.');
     } else {
+      setTituloNovo('');
       await carregarMidias();
     }
+  }
+
+  function abrirRenomear(midia: Midia) {
+    setTituloEditado(midia.titulo ?? '');
+    setMidiaParaRenomear(midia);
+  }
+
+  async function salvarTitulo() {
+    if (!midiaParaRenomear) return;
+    setErro(null);
+    const { error } = await supabase
+      .from('midias')
+      .update({ titulo: tituloEditado.trim() || null })
+      .eq('id', midiaParaRenomear.id);
+    if (error) setErro('Não foi possível salvar o título.');
+    setMidiaParaRenomear(null);
+    await carregarMidias();
   }
 
   async function moverMidia(indice: number, direcao: -1 | 1) {
@@ -117,7 +139,9 @@ export default function ConteudoAula() {
     const novaLista = [...midias];
     [novaLista[indice], novaLista[destino]] = [novaLista[destino], novaLista[indice]];
     const renumerada = novaLista.map((m, posicao) => ({ ...m, ordem: posicao }));
-    const mudaram = renumerada.filter((m) => midias.find((antiga) => antiga.id === m.id)?.ordem !== m.ordem);
+    const mudaram = renumerada.filter(
+      (m) => midias.find((antiga) => antiga.id === m.id)?.ordem !== m.ordem
+    );
 
     setMidias(renumerada);
     setErro(null);
@@ -166,13 +190,7 @@ export default function ConteudoAula() {
     setEnviando(true);
     setErro(null);
     try {
-      const caminho = await enviarArquivo(
-        item.uri,
-        usuario!.id,
-        aulaId,
-        nomeArquivo,
-        contentType
-      );
+      const caminho = await enviarArquivo(item.uri, usuario!.id, aulaId, nomeArquivo, contentType);
       await criarMidia({ tipo: ehVideo ? 'video' : 'imagem', caminho_storage: caminho });
     } catch {
       setErro('Não foi possível enviar o arquivo.');
@@ -255,15 +273,18 @@ export default function ConteudoAula() {
       <Text style={styles.subtitulo}>Conteúdo da aula</Text>
 
       {midias.length === 0 && (
-        <Text style={styles.vazio}>Esta aula ainda não tem conteúdo. Adicione o primeiro item abaixo.</Text>
+        <Text style={styles.vazio}>
+          Esta aula ainda não tem conteúdo. Adicione o primeiro item abaixo.
+        </Text>
       )}
 
       {midias.map((midia, indice) => (
         <View key={midia.id} style={styles.itemMidia}>
           <View style={styles.itemInfo}>
             <Text style={styles.itemTexto}>
-              {indice + 1}. {ROTULO_TIPO[midia.tipo] ?? midia.tipo}
+              {indice + 1}. {midia.titulo || ROTULO_TIPO[midia.tipo] || midia.tipo}
             </Text>
+            {!!midia.titulo && <Text style={styles.itemTipo}>{ROTULO_TIPO[midia.tipo]}</Text>}
             {midia.tipo === 'audio_texto' && (
               <Text style={styles.itemPreview} numberOfLines={2}>
                 {midia.texto_origem}
@@ -271,6 +292,13 @@ export default function ConteudoAula() {
             )}
           </View>
           <View style={styles.itemAcoes}>
+            <Pressable
+              style={styles.acao}
+              onPress={() => abrirRenomear(midia)}
+              accessibilityLabel={midia.titulo ? 'Trocar título' : 'Dar um título'}
+            >
+              <Text style={styles.acaoTexto}>✎</Text>
+            </Pressable>
             <Pressable
               style={[styles.acao, indice === 0 && styles.acaoDesabilitada]}
               disabled={indice === 0}
@@ -307,7 +335,11 @@ export default function ConteudoAula() {
         <View style={styles.modalFundo}>
           <View style={styles.modalCaixa}>
             <Text style={styles.modalTitulo}>
-              Remover “{midiaParaRemover ? ROTULO_TIPO[midiaParaRemover.tipo] : ''}”?
+              Remover “
+              {midiaParaRemover
+                ? midiaParaRemover.titulo || ROTULO_TIPO[midiaParaRemover.tipo]
+                : ''}
+              ”?
             </Text>
             <Text style={styles.modalAviso}>
               O item sai da aula e o arquivo é apagado. Não dá para desfazer.
@@ -329,7 +361,50 @@ export default function ConteudoAula() {
       {erro && <Text style={styles.erro}>{erro}</Text>}
       {enviando && <ActivityIndicator color={cores.primaria} style={{ marginVertical: 12 }} />}
 
+      <Modal
+        visible={midiaParaRenomear !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMidiaParaRenomear(null)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCaixa}>
+            <Text style={styles.modalTitulo}>Título do conteúdo</Text>
+            <TextInput
+              style={styles.campoTitulo}
+              value={tituloEditado}
+              onChangeText={setTituloEditado}
+              onSubmitEditing={salvarTitulo}
+              placeholder="Ex: Diálogo no aeroporto"
+              placeholderTextColor={cores.textoSuave}
+              autoFocus
+            />
+            <Text style={styles.dica}>Deixe em branco para não mostrar título.</Text>
+            <View style={styles.modalBotoes}>
+              <Pressable onPress={() => setMidiaParaRenomear(null)}>
+                <Text style={styles.modalCancelar}>Cancelar</Text>
+              </Pressable>
+              <Pressable onPress={salvarTitulo}>
+                <Text style={styles.modalSalvar}>Salvar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <Text style={styles.secaoTitulo}>Adicionar</Text>
+
+      <Text style={styles.rotuloCampo}>Título do conteúdo (opcional)</Text>
+      <TextInput
+        style={styles.campoTitulo}
+        value={tituloNovo}
+        onChangeText={setTituloNovo}
+        placeholder="Ex: Diálogo no aeroporto"
+        placeholderTextColor={cores.textoSuave}
+      />
+      <Text style={[styles.dica, styles.dicaAdicionar]}>
+        Escreva o título e depois escolha o que adicionar abaixo.
+      </Text>
 
       <Pressable style={styles.botao} onPress={escolherFotoOuVideo} disabled={enviando}>
         <Text style={styles.botaoTexto}>Foto ou vídeo</Text>
@@ -347,11 +422,7 @@ export default function ConteudoAula() {
         <Text style={styles.botaoTexto}>{gravando ? 'Parar gravação' : 'Gravar áudio'}</Text>
       </Pressable>
 
-      <Pressable
-        style={styles.botao}
-        onPress={() => setModalTextoAberto(true)}
-        disabled={enviando}
-      >
+      <Pressable style={styles.botao} onPress={() => setModalTextoAberto(true)} disabled={enviando}>
         <Text style={styles.botaoTexto}>Escrever texto (voz)</Text>
       </Pressable>
 
@@ -359,6 +430,15 @@ export default function ConteudoAula() {
         <View style={styles.modalFundo}>
           <View style={styles.modalCaixa}>
             <Text style={styles.modalTitulo}>Texto que a voz vai ler</Text>
+            <Text style={styles.rotuloCampo}>Título (opcional)</Text>
+            <TextInput
+              style={styles.campoTitulo}
+              value={tituloNovo}
+              onChangeText={setTituloNovo}
+              placeholder="Ex: Vocabulário do check-in"
+              placeholderTextColor={cores.textoSuave}
+            />
+            <Text style={styles.rotuloCampo}>Texto</Text>
             <TextInput
               style={styles.modalInput}
               value={textoVoz}
@@ -435,6 +515,20 @@ const criarEstilos = (c: Cores) =>
     acaoTexto: { fontFamily: fontes.textoForte, color: c.texto, fontSize: 16 },
     modalAviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20, marginBottom: 16 },
     itemTexto: { fontFamily: fontes.textoForte, color: c.texto },
+    itemTipo: { fontFamily: fontes.texto, fontSize: 12, color: c.destaque, marginTop: 2 },
+    rotuloCampo: { fontFamily: fontes.textoMedio, color: c.texto, marginBottom: 6 },
+    campoTitulo: {
+      fontFamily: fontes.texto,
+      borderWidth: 1,
+      borderColor: c.borda,
+      borderRadius: 8,
+      padding: 10,
+      color: c.texto,
+      backgroundColor: c.superficie,
+      marginBottom: 6,
+    },
+    dica: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, marginBottom: 16 },
+    dicaAdicionar: { marginBottom: 14 },
     itemPreview: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4 },
     erro: { fontFamily: fontes.texto, color: c.erro, marginBottom: 12 },
     secaoTitulo: {

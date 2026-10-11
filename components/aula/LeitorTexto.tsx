@@ -10,6 +10,7 @@ type Props = {
   idioma: string | null;
   ativo: string | null;
   onAtivar: (id: string) => void;
+  onTerminar?: (id: string) => void;
 };
 
 // Separa o texto em [antes, palavra sendo lida, depois] a partir da posição informada pela voz.
@@ -18,10 +19,14 @@ function dividirNaPalavra(texto: string, inicio: number) {
   const resto = texto.slice(inicio);
   const fim = resto.search(/\s/);
   const tamanho = fim === -1 ? resto.length : fim;
-  return [texto.slice(0, inicio), texto.slice(inicio, inicio + tamanho), texto.slice(inicio + tamanho)];
+  return [
+    texto.slice(0, inicio),
+    texto.slice(inicio, inicio + tamanho),
+    texto.slice(inicio + tamanho),
+  ];
 }
 
-export function LeitorTexto({ id, texto, idioma, ativo, onAtivar }: Props) {
+export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: Props) {
   const { cores } = useTema();
   const estilos = useEstilos(criarEstilos);
   const estilosPlayer = useEstilos(criarEstilosPlayer);
@@ -54,7 +59,11 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar }: Props) {
       rate: velocidade,
       onBoundary: ((evento: { charIndex: number }) =>
         setPosicao(evento.charIndex)) as Speech.SpeechOptions['onBoundary'],
-      onDone: terminar,
+      // onDone: leu até o fim (conta como visto); onStopped: alguém parou no meio (não conta)
+      onDone: () => {
+        terminar();
+        onTerminar?.(id);
+      },
       onStopped: terminar,
     });
   }
@@ -67,7 +76,9 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar }: Props) {
         {partes ? (
           <>
             {partes[0]}
-            <Text style={[estilos.palavra, { backgroundColor: cores.destaque, color: cores.fundo }]}>
+            <Text
+              style={[estilos.palavra, { backgroundColor: cores.destaque, color: cores.fundo }]}
+            >
               {partes[1]}
             </Text>
             {partes[2]}
@@ -94,13 +105,20 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar }: Props) {
             style={[estilosPlayer.chip, velocidade === valor && estilosPlayer.chipAtivo]}
             onPress={() => setVelocidade(valor)}
           >
-            <Text style={[estilosPlayer.chipTexto, velocidade === valor && estilosPlayer.chipTextoAtivo]}>
+            <Text
+              style={[
+                estilosPlayer.chipTexto,
+                velocidade === valor && estilosPlayer.chipTextoAtivo,
+              ]}
+            >
               {String(valor).replace('.', ',')}x
             </Text>
           </Pressable>
         ))}
       </View>
-      {falando && <Text style={estilos.nota}>A velocidade nova vale a partir da próxima leitura.</Text>}
+      {falando && (
+        <Text style={estilos.nota}>A velocidade nova vale a partir da próxima leitura.</Text>
+      )}
     </View>
   );
 }

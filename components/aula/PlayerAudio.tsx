@@ -10,6 +10,7 @@ type Props = {
   url: string;
   ativo: string | null;
   onAtivar: (id: string) => void;
+  onTerminar?: (id: string) => void;
 };
 
 function formatarTempo(segundos: number) {
@@ -17,7 +18,7 @@ function formatarTempo(segundos: number) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
-export function PlayerAudio({ id, url, ativo, onAtivar }: Props) {
+export function PlayerAudio({ id, url, ativo, onAtivar, onTerminar }: Props) {
   const estilos = useEstilos(criarEstilos);
   const player = useAudioPlayer(url, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
@@ -28,6 +29,10 @@ export function PlayerAudio({ id, url, ativo, onAtivar }: Props) {
   useEffect(() => {
     if (ativo !== id && status.playing) player.pause();
   }, [ativo, id, player, status.playing]);
+
+  useEffect(() => {
+    if (status.didJustFinish) onTerminar?.(id);
+  }, [status.didJustFinish, id, onTerminar]);
 
   function alternar() {
     if (status.playing) {
@@ -68,11 +73,17 @@ export function PlayerAudio({ id, url, ativo, onAtivar }: Props) {
       </Pressable>
       <View style={estilos.tempos}>
         <Text style={estilos.tempo}>{formatarTempo(status.currentTime)}</Text>
-        <Text style={estilos.tempo}>{status.isLoaded ? formatarTempo(status.duration) : '--:--'}</Text>
+        <Text style={estilos.tempo}>
+          {status.isLoaded ? formatarTempo(status.duration) : '--:--'}
+        </Text>
       </View>
 
       <View style={estilos.controles}>
-        <Pressable style={estilos.pulo} onPress={() => pular(-10)} accessibilityLabel="Voltar 10 segundos">
+        <Pressable
+          style={estilos.pulo}
+          onPress={() => pular(-10)}
+          accessibilityLabel="Voltar 10 segundos"
+        >
           <Text style={estilos.puloTexto}>−10s</Text>
         </Pressable>
         <Pressable
@@ -83,7 +94,11 @@ export function PlayerAudio({ id, url, ativo, onAtivar }: Props) {
         >
           <Text style={estilos.playTexto}>{status.playing ? '❚❚' : '▶'}</Text>
         </Pressable>
-        <Pressable style={estilos.pulo} onPress={() => pular(10)} accessibilityLabel="Avançar 10 segundos">
+        <Pressable
+          style={estilos.pulo}
+          onPress={() => pular(10)}
+          accessibilityLabel="Avançar 10 segundos"
+        >
           <Text style={estilos.puloTexto}>+10s</Text>
         </Pressable>
       </View>
@@ -118,7 +133,12 @@ export const criarEstilos = (c: Cores) =>
     // sem toque no preenchimento, para a posição do clique ser medida na barra inteira
     barraPreenchida: { height: '100%', backgroundColor: c.destaque, pointerEvents: 'none' },
     tempos: { flexDirection: 'row', justifyContent: 'space-between' },
-    tempo: { fontFamily: fontes.textoMedio, fontSize: 12, color: c.textoSuave, fontVariant: ['tabular-nums'] },
+    tempo: {
+      fontFamily: fontes.textoMedio,
+      fontSize: 12,
+      color: c.textoSuave,
+      fontVariant: ['tabular-nums'],
+    },
     controles: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 },
     pulo: { padding: 8 },
     puloTexto: { fontFamily: fontes.textoForte, color: c.texto },
