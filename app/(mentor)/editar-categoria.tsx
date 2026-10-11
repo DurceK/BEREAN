@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Text, Pressable, StyleSheet, ScrollView } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { apagarArquivos, caminhosDosArquivos } from '../../lib/midias';
@@ -13,6 +13,8 @@ const ERRO_APAGAR = 'Não foi possível apagar. Verifique a conexão e tente de 
 export default function EditarCategoria() {
   const { usuario } = useAuth();
   const styles = useEstilos(criarEstilos);
+  // Vindo de um card da tela inicial, a categoria já chega selecionada
+  const { categoria: categoriaInicial } = useLocalSearchParams<{ categoria?: string }>();
 
   const [categorias, setCategorias] = useState<ItemSelecionavel[]>([]);
   const [categoriaId, setCategoriaId] = useState<string | null>(null);
@@ -24,7 +26,13 @@ export default function EditarCategoria() {
   const [aulaId, setAulaId] = useState<string | null>(null);
 
   useEffect(() => {
-    carregarCategorias();
+    async function iniciar() {
+      await carregarCategorias();
+      if (categoriaInicial) await selecionarCategoria(categoriaInicial);
+    }
+    iniciar();
+    // carrega uma vez ao abrir a tela
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function carregarCategorias() {

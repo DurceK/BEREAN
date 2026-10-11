@@ -9,6 +9,7 @@ export type Usuario = {
   nome: string;
   papel: Papel;
   precisaTrocarSenha: boolean;
+  avatar: string | null; // caminho da foto no bucket "avatares"
 };
 
 type AuthContextValue = {
@@ -18,6 +19,7 @@ type AuthContextValue = {
   entrar: (matricula: string, senha: string) => Promise<{ erro: string | null }>;
   sair: () => Promise<void>;
   trocarSenha: (novaSenha: string) => Promise<{ erro: string | null }>;
+  definirAvatar: (caminho: string) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -66,7 +68,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setIsLoading(true);
       const { data } = await supabase
         .from('usuarios')
-        .select('id, nome, papel, precisa_trocar_senha')
+        .select('id, nome, papel, precisa_trocar_senha, avatar_url')
         .eq('id', session.user.id)
         .single();
 
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 nome: data.nome,
                 papel: data.papel,
                 precisaTrocarSenha: data.precisa_trocar_senha,
+                avatar: data.avatar_url,
               }
             : null
         );
@@ -126,8 +129,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return { erro: null };
   }
 
+  function definirAvatar(caminho: string) {
+    setUsuario((atual) => (atual ? { ...atual, avatar: caminho } : atual));
+  }
+
   return (
-    <AuthContext.Provider value={{ session, usuario, isLoading, entrar, sair, trocarSenha }}>
+    <AuthContext.Provider
+      value={{ session, usuario, isLoading, entrar, sair, trocarSenha, definirAvatar }}
+    >
       {children}
     </AuthContext.Provider>
   );

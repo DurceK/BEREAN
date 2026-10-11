@@ -19,6 +19,8 @@ export type Cores = {
   destaque: string;
   erro: string;
   sobreposicao: string;
+  faixa: string; // faixa de destaque no topo do perfil
+  sobreFaixa: string;
 };
 
 const claro: Cores = {
@@ -33,6 +35,8 @@ const claro: Cores = {
   destaque: '#8A6A2C',
   erro: '#A3392A',
   sobreposicao: 'rgba(7, 36, 28, 0.55)',
+  faixa: marca.esmeralda,
+  sobreFaixa: marca.marfim,
 };
 
 const escuro: Cores = {
@@ -46,6 +50,8 @@ const escuro: Cores = {
   destaque: marca.ouro,
   erro: '#E8846F',
   sobreposicao: 'rgba(0, 0, 0, 0.6)',
+  faixa: marca.esmeralda,
+  sobreFaixa: marca.marfim,
 };
 
 export const fontes = {

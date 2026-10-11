@@ -8,7 +8,7 @@ create table usuarios (
   matricula text not null unique, -- cópia da matrícula de login (o login usa matricula@berean.app)
   nome text not null,
   papel text not null check (papel in ('mentor', 'mentorado')),
-  avatar_url text,
+  avatar_url text, -- caminho da foto no bucket "avatares" ({usuario_id}/arquivo)
   precisa_trocar_senha boolean not null default false,
   criado_em timestamptz not null default now()
 );

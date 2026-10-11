@@ -14,7 +14,7 @@ export default function MentorLayout() {
         contentStyle: { backgroundColor: cores.fundo },
       }}
     >
-      <Stack.Screen name="inicio" options={{ title: 'Início' }} />
+      <Stack.Screen name="inicio" options={{ title: 'Início', headerShown: false }} />
       <Stack.Screen name="editar-categoria" options={{ title: 'Categorias' }} />
       <Stack.Screen name="aula/[aulaId]" options={{ title: 'Conteúdo' }} />
     </Stack>

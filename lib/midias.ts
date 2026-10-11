@@ -2,6 +2,13 @@ import { supabase } from './supabase';
 
 const BUCKET = 'midias';
 
+// Lê um arquivo escolhido no aparelho (ou no navegador) como bytes, pronto pra enviar ao Storage.
+export async function lerComoBytes(uri: string) {
+  const resposta = await fetch(uri);
+  const blob = await resposta.blob();
+  return new Response(blob).arrayBuffer();
+}
+
 export async function enviarArquivo(
   uri: string,
   mentorId: string,
@@ -9,12 +16,9 @@ export async function enviarArquivo(
   nomeArquivo: string,
   contentType: string
 ) {
-  const resposta = await fetch(uri);
-  const blob = await resposta.blob();
-  const arrayBuffer = await new Response(blob).arrayBuffer();
   const caminho = `${mentorId}/${aulaId}/${Date.now()}-${nomeArquivo}`;
 
-  const { error } = await supabase.storage.from(BUCKET).upload(caminho, arrayBuffer, {
+  const { error } = await supabase.storage.from(BUCKET).upload(caminho, await lerComoBytes(uri), {
     contentType,
   });
 
