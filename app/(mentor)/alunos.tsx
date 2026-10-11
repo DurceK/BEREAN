@@ -9,14 +9,21 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { criarMentorado, gerarSenhaProvisoria, redefinirSenha } from '../../lib/adminUsuarios';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
+import { FotoPessoa } from '../../components/FotoPessoa';
 
 type Categoria = { id: string; nome: string };
-type Aluno = { id: string; nome: string; matricula: string; categorias: string[] };
+type Aluno = {
+  id: string;
+  nome: string;
+  matricula: string;
+  avatar_url: string | null;
+  categorias: string[];
+};
 
 // Janela aberta no momento: cadastro, redefinição de senha, ou o aviso com os dados de acesso
 type Janela =
@@ -49,7 +56,7 @@ export default function Alunos() {
       supabase.from('categorias').select('id, nome').eq('mentor_id', usuario.id).order('nome'),
       supabase
         .from('inscricoes')
-        .select('categoria_id, usuarios(id, nome, matricula), categorias!inner(mentor_id)')
+        .select('categoria_id, usuarios(id, nome, matricula, avatar_url), categorias!inner(mentor_id)')
         .eq('categorias.mentor_id', usuario.id),
     ]);
 
@@ -61,7 +68,7 @@ export default function Alunos() {
 
     const porAluno = new Map<string, Aluno>();
     for (const linha of resInscricoes.data ?? []) {
-      const pessoa = linha.usuarios as unknown as { id: string; nome: string; matricula: string } | null;
+      const pessoa = linha.usuarios as unknown as Omit<Aluno, 'categorias'> | null;
       if (!pessoa) continue;
       const aluno = porAluno.get(pessoa.id) ?? { ...pessoa, categorias: [] };
       aluno.categorias.push(linha.categoria_id);
@@ -171,10 +178,16 @@ export default function Alunos() {
       {alunos.map((aluno) => (
         <View key={aluno.id} style={estilos.card}>
           <View style={estilos.cardTopo}>
-            <View style={estilos.cardInfo}>
-              <Text style={estilos.cardNome}>{aluno.nome}</Text>
-              <Text style={estilos.cardMatricula}>Matrícula {aluno.matricula}</Text>
-            </View>
+            <Link href={`/(mentor)/aluno/${aluno.id}`} asChild>
+              <Pressable style={estilos.cardPessoa} accessibilityLabel={`Ver como ${aluno.nome} está estudando`}>
+                <FotoPessoa nome={aluno.nome} caminho={aluno.avatar_url} />
+                <View style={estilos.cardInfo}>
+                  <Text style={estilos.cardNome}>{aluno.nome}</Text>
+                  <Text style={estilos.cardMatricula}>Matrícula {aluno.matricula}</Text>
+                  <Text style={estilos.cardLink}>Ver progresso ›</Text>
+                </View>
+              </Pressable>
+            </Link>
             <Pressable style={estilos.botaoSecundario} onPress={() => abrirSenha(aluno)}>
               <Text style={estilos.botaoSecundarioTexto}>Redefinir senha</Text>
             </Pressable>
@@ -375,7 +388,9 @@ const criarEstilos = (c: Cores) =>
       gap: 12,
     },
     cardTopo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    cardPessoa: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
     cardInfo: { flex: 1, minWidth: 0, gap: 2 },
+    cardLink: { fontFamily: fontes.textoMedio, fontSize: 13, color: c.destaque, marginTop: 2 },
     cardNome: { fontFamily: fontes.textoForte, fontSize: 16, color: c.texto },
     cardMatricula: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

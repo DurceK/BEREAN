@@ -9,6 +9,8 @@
   - [x] Cadastrar mentorados e inscrevê-los em categorias (Edge Function `admin-usuarios`)
   - [x] Redefinir senha de mentorado
   - [x] Foto de perfil e cabeçalho de perfil nas telas iniciais
+  - [x] Ficha do aluno: progresso geral e por categoria, situação e data de cada aula, última atividade
+  - [ ] Apagar aluno (hoje só pelo painel do Supabase: Authentication → Users)
   - [ ] Publicar o painel num endereço na internet (decidido: é a área do mentor do próprio app; falta escolher a hospedagem)
 
 - [x] **Esqueci a senha**: o link na tela de login orienta a pedir ao mentor, que redefine pela tela Alunos (senha provisória + troca obrigatória no próximo acesso). O "recuperar por e-mail" não serve porque o login usa e-mail fictício (`matricula@berean.app`).

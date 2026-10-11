@@ -9,7 +9,7 @@ import { fontes, useEstilos, useTema, type Cores } from '../lib/tema';
 const BUCKET = 'avatares';
 const TAMANHO = 52;
 
-function iniciais(nome: string) {
+export function iniciais(nome: string) {
   const partes = nome.trim().split(/\s+/);
   const primeira = partes[0]?.[0] ?? '';
   const ultima = partes.length > 1 ? partes[partes.length - 1][0] : '';
