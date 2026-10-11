@@ -22,7 +22,7 @@
   - [ ] Guardar a posição do áudio pra "continuar de onde parou" (coluna `progresso.posicao_segundos` existe, ainda não é usada)
 
 - [ ] **Versão por cliente (ícone, nome e cores)**
-      Hoje ícone e nome ficam fixos no `app.json` e as cores no `lib/tema.ts`. Para trocar por cliente sem editar à mão a cada vez: trocar o `app.json` por um `app.config.ts` que lê uma pasta por cliente (ex: `clientes/berean-ingles/` com ícone, nome e paleta) e escolhe qual usar na hora de gerar o app.
+      Hoje ícone e nome ficam fixos no `app.json`, o logo da tela de login em `assets/logo.png` (escudo recortado do ícone) e as cores no `lib/tema.ts`. Para trocar por cliente sem editar à mão a cada vez: trocar o `app.json` por um `app.config.ts` que lê uma pasta por cliente (ex: `clientes/berean-ingles/` com ícone, nome e paleta) e escolhe qual usar na hora de gerar o app.
 
 - [ ] **Migrar os scripts SQL para o Supabase CLI** (migrations versionadas) antes de vender para outras empresas
 
