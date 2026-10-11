@@ -36,7 +36,8 @@
           "image": "./assets/icon.png",
           "imageWidth": 220
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

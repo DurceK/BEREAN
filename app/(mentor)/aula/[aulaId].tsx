@@ -15,7 +15,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
-import { enviarArquivo } from '../../../lib/midias';
+import { apagarArquivos, enviarArquivo } from '../../../lib/midias';
 import { fontes, useEstilos, useTema, type Cores } from '../../../lib/tema';
 
 type Midia = {
@@ -24,7 +24,13 @@ type Midia = {
   ordem: number;
   caminho_storage: string | null;
   texto_origem: string | null;
+  idioma?: string | null;
 };
+
+const IDIOMAS = [
+  { valor: 'pt-BR', rotulo: 'Português' },
+  { valor: 'en-US', rotulo: 'Inglês' },
+];
 
 const ROTULO_TIPO: Record<string, string> = {
   audio_gravado: 'Áudio gravado',
@@ -47,6 +53,9 @@ export default function ConteudoAula() {
 
   const [modalTextoAberto, setModalTextoAberto] = useState(false);
   const [textoVoz, setTextoVoz] = useState('');
+  const [idiomaTexto, setIdiomaTexto] = useState('pt-BR');
+  const [midiaParaRemover, setMidiaParaRemover] = useState<Midia | null>(null);
+  const [removendo, setRemovendo] = useState(false);
 
   const [gravando, setGravando] = useState(false);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -88,9 +97,10 @@ export default function ConteudoAula() {
 
   async function criarMidia(campos: Partial<Midia> & { tipo: string }) {
     if (!usuario) return;
+    const proximaOrdem = midias.reduce((maior, m) => Math.max(maior, m.ordem), -1) + 1;
     const { error } = await supabase.from('midias').insert({
       aula_id: aulaId,
-      ordem: midias.length,
+      ordem: proximaOrdem,
       ...campos,
     });
     if (error) {
@@ -98,6 +108,41 @@ export default function ConteudoAula() {
     } else {
       await carregarMidias();
     }
+  }
+
+  async function moverMidia(indice: number, direcao: -1 | 1) {
+    const destino = indice + direcao;
+    if (destino < 0 || destino >= midias.length) return;
+
+    const novaLista = [...midias];
+    [novaLista[indice], novaLista[destino]] = [novaLista[destino], novaLista[indice]];
+    const renumerada = novaLista.map((m, posicao) => ({ ...m, ordem: posicao }));
+    const mudaram = renumerada.filter((m) => midias.find((antiga) => antiga.id === m.id)?.ordem !== m.ordem);
+
+    setMidias(renumerada);
+    setErro(null);
+    const resultados = await Promise.all(
+      mudaram.map((m) => supabase.from('midias').update({ ordem: m.ordem }).eq('id', m.id))
+    );
+    if (resultados.some((r) => r.error)) {
+      setErro('Não foi possível salvar a nova ordem.');
+      await carregarMidias();
+    }
+  }
+
+  async function confirmarRemocao() {
+    if (!midiaParaRemover) return;
+    setRemovendo(true);
+    setErro(null);
+    const { error } = await supabase.from('midias').delete().eq('id', midiaParaRemover.id);
+    if (error) {
+      setErro('Não foi possível remover o item.');
+    } else if (midiaParaRemover.caminho_storage) {
+      await apagarArquivos([midiaParaRemover.caminho_storage]);
+    }
+    setRemovendo(false);
+    setMidiaParaRemover(null);
+    await carregarMidias();
   }
 
   async function escolherFotoOuVideo() {
@@ -199,7 +244,7 @@ export default function ConteudoAula() {
 
   async function salvarTexto() {
     if (!textoVoz.trim()) return;
-    await criarMidia({ tipo: 'audio_texto', texto_origem: textoVoz.trim() });
+    await criarMidia({ tipo: 'audio_texto', texto_origem: textoVoz.trim(), idioma: idiomaTexto });
     setTextoVoz('');
     setModalTextoAberto(false);
   }
@@ -209,16 +254,77 @@ export default function ConteudoAula() {
       <Text style={styles.titulo}>{tituloAula}</Text>
       <Text style={styles.subtitulo}>Conteúdo da aula</Text>
 
-      {midias.map((midia) => (
+      {midias.length === 0 && (
+        <Text style={styles.vazio}>Esta aula ainda não tem conteúdo. Adicione o primeiro item abaixo.</Text>
+      )}
+
+      {midias.map((midia, indice) => (
         <View key={midia.id} style={styles.itemMidia}>
-          <Text style={styles.itemTexto}>{ROTULO_TIPO[midia.tipo] ?? midia.tipo}</Text>
-          {midia.tipo === 'audio_texto' && (
-            <Text style={styles.itemPreview} numberOfLines={2}>
-              {midia.texto_origem}
+          <View style={styles.itemInfo}>
+            <Text style={styles.itemTexto}>
+              {indice + 1}. {ROTULO_TIPO[midia.tipo] ?? midia.tipo}
             </Text>
-          )}
+            {midia.tipo === 'audio_texto' && (
+              <Text style={styles.itemPreview} numberOfLines={2}>
+                {midia.texto_origem}
+              </Text>
+            )}
+          </View>
+          <View style={styles.itemAcoes}>
+            <Pressable
+              style={[styles.acao, indice === 0 && styles.acaoDesabilitada]}
+              disabled={indice === 0}
+              onPress={() => moverMidia(indice, -1)}
+              accessibilityLabel="Subir"
+            >
+              <Text style={styles.acaoTexto}>↑</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.acao, indice === midias.length - 1 && styles.acaoDesabilitada]}
+              disabled={indice === midias.length - 1}
+              onPress={() => moverMidia(indice, 1)}
+              accessibilityLabel="Descer"
+            >
+              <Text style={styles.acaoTexto}>↓</Text>
+            </Pressable>
+            <Pressable
+              style={styles.acao}
+              onPress={() => setMidiaParaRemover(midia)}
+              accessibilityLabel="Remover"
+            >
+              <Text style={[styles.acaoTexto, { color: cores.erro }]}>✕</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
+
+      <Modal
+        visible={midiaParaRemover !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMidiaParaRemover(null)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCaixa}>
+            <Text style={styles.modalTitulo}>
+              Remover “{midiaParaRemover ? ROTULO_TIPO[midiaParaRemover.tipo] : ''}”?
+            </Text>
+            <Text style={styles.modalAviso}>
+              O item sai da aula e o arquivo é apagado. Não dá para desfazer.
+            </Text>
+            <View style={styles.modalBotoes}>
+              <Pressable onPress={() => setMidiaParaRemover(null)}>
+                <Text style={styles.modalCancelar}>Cancelar</Text>
+              </Pressable>
+              <Pressable onPress={confirmarRemocao} disabled={removendo}>
+                <Text style={[styles.modalSalvar, { color: cores.erro }]}>
+                  {removendo ? 'Aguarde...' : 'Remover'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {erro && <Text style={styles.erro}>{erro}</Text>}
       {enviando && <ActivityIndicator color={cores.primaria} style={{ marginVertical: 12 }} />}
@@ -262,6 +368,25 @@ export default function ConteudoAula() {
               multiline
               autoFocus
             />
+            <Text style={styles.idiomaRotulo}>Idioma da voz</Text>
+            <View style={styles.idiomas}>
+              {IDIOMAS.map((opcao) => (
+                <Pressable
+                  key={opcao.valor}
+                  style={[styles.idioma, idiomaTexto === opcao.valor && styles.idiomaAtivo]}
+                  onPress={() => setIdiomaTexto(opcao.valor)}
+                >
+                  <Text
+                    style={[
+                      styles.idiomaTexto,
+                      idiomaTexto === opcao.valor && styles.idiomaTextoAtivo,
+                    ]}
+                  >
+                    {opcao.rotulo}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
             <View style={styles.modalBotoes}>
               <Pressable onPress={() => setModalTextoAberto(false)}>
                 <Text style={styles.modalCancelar}>Cancelar</Text>
@@ -283,7 +408,11 @@ const criarEstilos = (c: Cores) =>
     container: { padding: 24, width: '100%', maxWidth: 720, alignSelf: 'center' },
     titulo: { fontFamily: fontes.titulo, fontSize: 22, color: c.texto },
     subtitulo: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4, marginBottom: 20 },
+    vazio: { fontFamily: fontes.texto, color: c.textoSuave, marginBottom: 12, lineHeight: 20 },
     itemMidia: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
       backgroundColor: c.superficie,
       borderRadius: 8,
       padding: 12,
@@ -291,6 +420,20 @@ const criarEstilos = (c: Cores) =>
       borderWidth: 1,
       borderColor: c.borda,
     },
+    itemInfo: { flex: 1, minWidth: 0 },
+    itemAcoes: { flexDirection: 'row', gap: 6 },
+    acao: {
+      width: 36,
+      height: 36,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: c.borda,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    acaoDesabilitada: { opacity: 0.3 },
+    acaoTexto: { fontFamily: fontes.textoForte, color: c.texto, fontSize: 16 },
+    modalAviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20, marginBottom: 16 },
     itemTexto: { fontFamily: fontes.textoForte, color: c.texto },
     itemPreview: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4 },
     erro: { fontFamily: fontes.texto, color: c.erro, marginBottom: 12 },
@@ -344,4 +487,16 @@ const criarEstilos = (c: Cores) =>
     modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24 },
     modalCancelar: { fontFamily: fontes.textoMedio, color: c.textoSuave },
     modalSalvar: { fontFamily: fontes.textoForte, color: c.destaque },
+    idiomaRotulo: { fontFamily: fontes.textoMedio, color: c.texto, marginBottom: 8 },
+    idiomas: { flexDirection: 'row', gap: 8, marginBottom: 20 },
+    idioma: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.borda,
+    },
+    idiomaAtivo: { backgroundColor: c.primaria, borderColor: c.primaria },
+    idiomaTexto: { fontFamily: fontes.textoMedio, color: c.texto },
+    idiomaTextoAtivo: { color: c.sobrePrimaria },
   });

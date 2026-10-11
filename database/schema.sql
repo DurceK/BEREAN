@@ -64,6 +64,7 @@ create table midias (
   ordem integer not null default 0,
   caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'
   texto_origem text, -- só usado quando tipo = 'audio_texto'
+  idioma text check (idioma in ('pt-BR', 'en-US')), -- voz do audio_texto; nulo = português
   duracao_segundos numeric,
   criado_em timestamptz not null default now()
 );

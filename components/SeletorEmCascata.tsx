@@ -5,6 +5,9 @@ import { fontes, useEstilos, useTema, type Cores } from '../lib/tema';
 
 export type ItemSelecionavel = { id: string; nome: string };
 
+// Cada ação devolve uma mensagem de erro, ou null quando deu certo.
+type Acao<T extends unknown[]> = (...args: T) => Promise<string | null>;
+
 type Props = {
   titulo: string;
   itens: ItemSelecionavel[];
@@ -12,8 +15,14 @@ type Props = {
   onSelecionar: (id: string) => void;
   desabilitado?: boolean;
   tituloModalCriar: string;
-  onCriar: (nome: string) => Promise<void>;
+  tituloModalRenomear: string;
+  avisoApagar: string;
+  onCriar: Acao<[nome: string]>;
+  onRenomear: Acao<[id: string, nome: string]>;
+  onApagar: Acao<[id: string]>;
 };
+
+type Janela = 'criar' | 'renomear' | 'apagar' | null;
 
 export function SeletorEmCascata({
   titulo,
@@ -22,21 +31,45 @@ export function SeletorEmCascata({
   onSelecionar,
   desabilitado,
   tituloModalCriar,
+  tituloModalRenomear,
+  avisoApagar,
   onCriar,
+  onRenomear,
+  onApagar,
 }: Props) {
   const { cores } = useTema();
   const estilos = useEstilos(criarEstilos);
-  const [modalAberto, setModalAberto] = useState(false);
-  const [novoNome, setNovoNome] = useState('');
+  const [janela, setJanela] = useState<Janela>(null);
+  const [nome, setNome] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
-  async function confirmarCriacao() {
-    if (!novoNome.trim()) return;
+  const selecionado = itens.find((item) => item.id === valorSelecionado) ?? null;
+  const semSelecao = desabilitado || !selecionado;
+
+  function abrir(qual: Exclude<Janela, null>) {
+    setErro(null);
+    setNome(qual === 'renomear' ? (selecionado?.nome ?? '') : '');
+    setJanela(qual);
+  }
+
+  function fechar() {
+    setJanela(null);
+    setErro(null);
+  }
+
+  async function confirmar() {
+    if (janela !== 'apagar' && !nome.trim()) return;
+
     setSalvando(true);
-    await onCriar(novoNome.trim());
+    let falha: string | null = null;
+    if (janela === 'criar') falha = await onCriar(nome.trim());
+    else if (janela === 'renomear' && selecionado) falha = await onRenomear(selecionado.id, nome.trim());
+    else if (janela === 'apagar' && selecionado) falha = await onApagar(selecionado.id);
     setSalvando(false);
-    setNovoNome('');
-    setModalAberto(false);
+
+    if (falha) setErro(falha);
+    else fechar();
   }
 
   return (
@@ -59,33 +92,68 @@ export function SeletorEmCascata({
         </View>
       </View>
 
-      <Pressable
-        style={[estilos.botaoAdicionar, desabilitado && estilos.desabilitado]}
-        disabled={desabilitado}
-        onPress={() => setModalAberto(true)}
-        accessibilityLabel={tituloModalCriar}
-      >
-        <Text style={estilos.botaoAdicionarTexto}>+</Text>
-      </Pressable>
+      <View style={estilos.botoes}>
+        <Pressable
+          style={[estilos.botao, estilos.botaoPrincipal, desabilitado && estilos.desabilitado]}
+          disabled={desabilitado}
+          onPress={() => abrir('criar')}
+          accessibilityLabel={tituloModalCriar}
+        >
+          <Text style={estilos.botaoPrincipalTexto}>+</Text>
+        </Pressable>
+        <Pressable
+          style={[estilos.botao, semSelecao && estilos.desabilitado]}
+          disabled={semSelecao}
+          onPress={() => abrir('renomear')}
+          accessibilityLabel={tituloModalRenomear}
+        >
+          <Text style={estilos.botaoTexto}>✎</Text>
+        </Pressable>
+        <Pressable
+          style={[estilos.botao, semSelecao && estilos.desabilitado]}
+          disabled={semSelecao}
+          onPress={() => abrir('apagar')}
+          accessibilityLabel={`Apagar ${titulo.toLowerCase()}`}
+        >
+          <Text style={[estilos.botaoTexto, { color: cores.erro }]}>✕</Text>
+        </Pressable>
+      </View>
 
-      <Modal visible={modalAberto} transparent animationType="fade">
+      <Modal visible={janela !== null} transparent animationType="fade" onRequestClose={fechar}>
         <View style={estilos.modalFundo}>
           <View style={estilos.modalCaixa}>
-            <Text style={estilos.modalTitulo}>{tituloModalCriar}</Text>
-            <TextInput
-              style={estilos.modalInput}
-              value={novoNome}
-              onChangeText={setNovoNome}
-              placeholder="Nome"
-              placeholderTextColor={cores.textoSuave}
-              autoFocus
-            />
+            {janela === 'apagar' ? (
+              <>
+                <Text style={estilos.modalTitulo}>Apagar “{selecionado?.nome}”?</Text>
+                <Text style={estilos.modalAviso}>{avisoApagar}</Text>
+              </>
+            ) : (
+              <>
+                <Text style={estilos.modalTitulo}>
+                  {janela === 'criar' ? tituloModalCriar : tituloModalRenomear}
+                </Text>
+                <TextInput
+                  style={estilos.modalInput}
+                  value={nome}
+                  onChangeText={setNome}
+                  onSubmitEditing={confirmar}
+                  placeholder="Nome"
+                  placeholderTextColor={cores.textoSuave}
+                  autoFocus
+                />
+              </>
+            )}
+
+            {erro && <Text style={estilos.modalErro}>{erro}</Text>}
+
             <View style={estilos.modalBotoes}>
-              <Pressable onPress={() => setModalAberto(false)}>
+              <Pressable onPress={fechar}>
                 <Text style={estilos.modalCancelar}>Cancelar</Text>
               </Pressable>
-              <Pressable onPress={confirmarCriacao} disabled={salvando}>
-                <Text style={estilos.modalSalvar}>{salvando ? 'Salvando...' : 'Salvar'}</Text>
+              <Pressable onPress={confirmar} disabled={salvando}>
+                <Text style={[estilos.modalConfirmar, janela === 'apagar' && { color: cores.erro }]}>
+                  {salvando ? 'Aguarde...' : janela === 'apagar' ? 'Apagar' : 'Salvar'}
+                </Text>
               </Pressable>
             </View>
           </View>
@@ -114,16 +182,21 @@ const criarEstilos = (c: Cores) =>
       borderWidth: 0,
       padding: 10,
     },
-    desabilitado: { opacity: 0.4 },
-    botaoAdicionar: {
+    desabilitado: { opacity: 0.35 },
+    botoes: { flexDirection: 'row', gap: 6 },
+    botao: {
       width: 44,
       height: 44,
       borderRadius: 8,
-      backgroundColor: c.primaria,
+      borderWidth: 1,
+      borderColor: c.borda,
+      backgroundColor: c.superficie,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    botaoAdicionarTexto: { fontFamily: fontes.textoForte, color: c.sobrePrimaria, fontSize: 22 },
+    botaoPrincipal: { backgroundColor: c.primaria, borderColor: c.primaria },
+    botaoPrincipalTexto: { fontFamily: fontes.textoForte, color: c.sobrePrimaria, fontSize: 22 },
+    botaoTexto: { fontFamily: fontes.textoForte, color: c.texto, fontSize: 18 },
     modalFundo: {
       flex: 1,
       backgroundColor: c.sobreposicao,
@@ -135,10 +208,11 @@ const criarEstilos = (c: Cores) =>
       borderRadius: 12,
       padding: 20,
       width: '100%',
-      maxWidth: 420,
+      maxWidth: 440,
       alignSelf: 'center',
     },
     modalTitulo: { fontFamily: fontes.tituloLeve, fontSize: 18, color: c.texto, marginBottom: 12 },
+    modalAviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20, marginBottom: 16 },
     modalInput: {
       fontFamily: fontes.texto,
       borderWidth: 1,
@@ -149,7 +223,8 @@ const criarEstilos = (c: Cores) =>
       backgroundColor: c.superficie,
       marginBottom: 16,
     },
+    modalErro: { fontFamily: fontes.texto, color: c.erro, marginBottom: 12 },
     modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24 },
     modalCancelar: { fontFamily: fontes.textoMedio, color: c.textoSuave },
-    modalSalvar: { fontFamily: fontes.textoForte, color: c.destaque },
+    modalConfirmar: { fontFamily: fontes.textoForte, color: c.destaque },
   });

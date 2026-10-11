@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { Link, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
@@ -14,6 +15,28 @@ export default function MentoradoInicio() {
   const styles = useEstilos(criarEstilos);
   const [categorias, setCategorias] = useState<CategoriaResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [progresso, setProgresso] = useState<Record<string, string>>({});
+
+  // Recarrega o progresso toda vez que a tela volta a aparecer (ex: ao sair de uma aula)
+  useFocusEffect(
+    useCallback(() => {
+      if (!usuario) return;
+      let cancelado = false;
+      supabase
+        .from('progresso')
+        .select('aula_id, status')
+        .eq('mentorado_id', usuario.id)
+        .then(({ data }) => {
+          if (cancelado) return;
+          const mapa: Record<string, string> = {};
+          for (const linha of data ?? []) mapa[linha.aula_id] = linha.status;
+          setProgresso(mapa);
+        });
+      return () => {
+        cancelado = true;
+      };
+    }, [usuario])
+  );
 
   useEffect(() => {
     if (!usuario) return;
@@ -77,11 +100,19 @@ export default function MentoradoInicio() {
             <View key={modulo.id} style={styles.modulo}>
               <Text style={styles.moduloTitulo}>{modulo.nome}</Text>
 
-              {modulo.aulas.map((aula) => (
-                <View key={aula.id} style={styles.aula}>
-                  <Text style={styles.aulaTitulo}>{aula.titulo}</Text>
-                </View>
-              ))}
+              {modulo.aulas.map((aula) => {
+                const status = progresso[aula.id];
+                return (
+                  <Link key={aula.id} href={`/(mentorado)/assistir/${aula.id}`} asChild>
+                    <Pressable style={styles.aula}>
+                      <Text style={styles.aulaTitulo}>{aula.titulo}</Text>
+                      {status === 'concluido' && <Text style={styles.selo}>✓ Concluída</Text>}
+                      {status === 'em_andamento' && <Text style={styles.seloSuave}>Em andamento</Text>}
+                      <Text style={styles.seta}>›</Text>
+                    </Pressable>
+                  </Link>
+                );
+              })}
             </View>
           ))}
         </View>
@@ -120,6 +151,9 @@ const criarEstilos = (c: Cores) =>
     modulo: { marginBottom: 16 },
     moduloTitulo: { fontFamily: fontes.textoForte, color: c.textoSuave, marginBottom: 8 },
     aula: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
       backgroundColor: c.superficie,
       borderRadius: 8,
       padding: 14,
@@ -127,7 +161,10 @@ const criarEstilos = (c: Cores) =>
       borderWidth: 1,
       borderColor: c.borda,
     },
-    aulaTitulo: { fontFamily: fontes.textoMedio, color: c.texto },
+    aulaTitulo: { flex: 1, minWidth: 0, fontFamily: fontes.textoMedio, color: c.texto },
+    selo: { fontFamily: fontes.textoForte, fontSize: 12, color: c.destaque },
+    seloSuave: { fontFamily: fontes.textoMedio, fontSize: 12, color: c.textoSuave },
+    seta: { fontFamily: fontes.textoForte, fontSize: 20, color: c.textoSuave },
     sair: { marginTop: 16, alignSelf: 'flex-start' },
     sairTexto: { fontFamily: fontes.textoMedio, color: c.erro },
   });

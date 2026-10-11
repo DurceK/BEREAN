@@ -4,18 +4,20 @@
 
 - [ ] **Painel de administração online para o mentor (pelo PC)**
   A Camila acessa pelo navegador do computador para montar e manter o curso. Deve permitir:
-  - [ ] Editar e apagar categorias, módulos e aulas (hoje o app só cria; correções são feitas no Table Editor do Supabase)
-  - [ ] Adicionar, reordenar e remover mídias de uma aula
-  - [ ] Cadastrar mentorados e inscrevê-los em categorias
+  - [x] Editar e apagar categorias, módulos e aulas (apagar também remove os arquivos do Storage)
+  - [x] Adicionar, reordenar e remover mídias de uma aula
+  - [ ] Cadastrar mentorados e inscrevê-los em categorias (precisa de Edge Function)
   - [ ] Redefinir senha de mentorado (ver "Esqueci a senha")
-
-  Ponto de partida sugerido: o próprio app já roda no navegador (Expo para web). A área do mentor pode virar esse painel com um layout pensado para tela grande, publicado num endereço na internet, sem criar um segundo projeto. Decidir antes de começar: mesmo app ou projeto separado, e onde hospedar.
+  - [ ] Publicar o painel num endereço na internet (decidido: é a área do mentor do próprio app; falta escolher a hospedagem)
 
 - [ ] **Esqueci a senha**
       O login usa matrícula convertida em e-mail fictício (`matricula@berean.app`), então o "recuperar senha por e-mail" padrão do Supabase não chega em ninguém.
       Caminho provável: o **mentor redefine a senha do mentorado** pelo app (gera senha provisória + marca `precisa_trocar_senha = true`). Isso exige a chave de administrador do Supabase, que nunca pode ficar no app — precisa de uma **Edge Function** no Supabase fazendo essa operação no servidor.
 
-- [ ] **Player de áudio/visualização de mídias para o mentorado** (hoje a tela só lista categorias/módulos/aulas)
+- [x] **Tela da aula para o mentorado**: player de áudio (±10s, velocidade), vídeo, foto, texto lido em voz com destaque da palavra, progresso (em andamento ao abrir, concluída pelo botão)
+  - [ ] Transcrição sincronizada para áudio gravado/enviado (a tabela `transcricoes` existe, mas ainda não há como cadastrar os trechos)
+  - [ ] Mini-player fixo para continuar ouvindo ao navegar entre telas (do briefing)
+  - [ ] Guardar a posição do áudio pra "continuar de onde parou" (coluna `progresso.posicao_segundos` existe, ainda não é usada)
 
 - [ ] **Versão por cliente (ícone, nome e cores)**
       Hoje ícone e nome ficam fixos no `app.json` e as cores no `lib/tema.ts`. Para trocar por cliente sem editar à mão a cada vez: trocar o `app.json` por um `app.config.ts` que lê uma pasta por cliente (ex: `clientes/berean-ingles/` com ícone, nome e paleta) e escolhe qual usar na hora de gerar o app.

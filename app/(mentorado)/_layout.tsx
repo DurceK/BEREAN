@@ -15,6 +15,7 @@ export default function MentoradoLayout() {
       }}
     >
       <Stack.Screen name="inicio" options={{ title: 'Minhas aulas' }} />
+      <Stack.Screen name="assistir/[aulaId]" options={{ title: 'Aula' }} />
     </Stack>
   );
 }
