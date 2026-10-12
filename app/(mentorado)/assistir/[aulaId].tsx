@@ -16,6 +16,8 @@ import { fontes, useEstilos, useTema, type Cores } from '../../../lib/tema';
 import { PlayerAudio } from '../../../components/aula/PlayerAudio';
 import { PlayerVideo } from '../../../components/aula/PlayerVideo';
 import { LeitorTexto } from '../../../components/aula/LeitorTexto';
+import { PlayerYoutube } from '../../../components/aula/PlayerYoutube';
+import { extrairIdYoutube } from '../../../lib/youtube';
 
 type Midia = {
   id: string;
@@ -24,6 +26,7 @@ type Midia = {
   texto_origem: string | null;
   idioma: string | null;
   titulo: string | null;
+  url_externa: string | null;
 };
 
 type Status = 'nao_iniciado' | 'em_andamento' | 'concluido';
@@ -92,7 +95,7 @@ export default function AulaMentorado() {
           .single(),
         supabase
           .from('midias')
-          .select('id, tipo, caminho_storage, texto_origem, idioma, titulo')
+          .select('id, tipo, caminho_storage, texto_origem, idioma, titulo, url_externa')
           .eq('aula_id', aulaId)
           .order('ordem'),
         supabase
@@ -170,11 +173,11 @@ export default function AulaMentorado() {
 
   // Itens que precisam ser vistos até o fim: áudios, vídeos e textos que abriram de verdade.
   // Fotos contam como vistas ao abrir a aula.
-  const paraAssistir = midias.filter((m) =>
-    m.tipo === 'audio_texto'
-      ? !!m.texto_origem
-      : m.tipo !== 'imagem' && !!m.caminho_storage && !!urls[m.caminho_storage]
-  );
+  const paraAssistir = midias.filter((m) => {
+    if (m.tipo === 'audio_texto') return !!m.texto_origem;
+    if (m.tipo === 'youtube') return !!extrairIdYoutube(m.url_externa ?? '');
+    return m.tipo !== 'imagem' && !!m.caminho_storage && !!urls[m.caminho_storage];
+  });
   const tudoVisto = paraAssistir.length > 0 && paraAssistir.every((m) => vistos.includes(m.id));
 
   // Grava no banco quando tudo foi visto. O estado só muda depois da resposta do servidor.
@@ -205,9 +208,24 @@ export default function AulaMentorado() {
 
       {midias.map((midia) => {
         const url = midia.caminho_storage ? urls[midia.caminho_storage] : undefined;
+        // o código do vídeo é conferido de novo aqui antes de ir para o player
+        const videoYoutube =
+          midia.tipo === 'youtube' ? extrairIdYoutube(midia.url_externa ?? '') : null;
         return (
           <View key={midia.id} style={styles.cartao}>
             {!!midia.titulo && <Text style={styles.cartaoTitulo}>{midia.titulo}</Text>}
+            {videoYoutube && (
+              <PlayerYoutube
+                id={midia.id}
+                videoId={videoYoutube}
+                ativo={ativo}
+                onAtivar={setAtivo}
+                onTerminar={marcarVisto}
+              />
+            )}
+            {midia.tipo === 'youtube' && !videoYoutube && (
+              <Text style={styles.vazio}>Este vídeo não pôde ser carregado.</Text>
+            )}
             {(midia.tipo === 'audio_gravado' || midia.tipo === 'audio_upload') && url && (
               <PlayerAudio
                 id={midia.id}

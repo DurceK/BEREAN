@@ -8,14 +8,23 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } from 'expo-audio';
+import {
+  useAudioRecorder,
+  AudioModule,
+  AudioQuality,
+  IOSOutputFormat,
+  setAudioModeAsync,
+  type RecordingOptions,
+} from 'expo-audio';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { apagarArquivos, enviarArquivo } from '../../../lib/midias';
+import { extrairIdYoutube, linkYoutube } from '../../../lib/youtube';
 import { fontes, useEstilos, useTema, type Cores } from '../../../lib/tema';
 
 type Midia = {
@@ -26,9 +35,35 @@ type Midia = {
   texto_origem: string | null;
   idioma?: string | null;
   titulo?: string | null;
+  url_externa?: string | null;
 };
 
-const COLUNAS = 'id, tipo, ordem, caminho_storage, texto_origem, titulo';
+// Gravação em qualidade de voz: mono, 64 kbps (~0,5 MB por minuto, metade do padrão de música).
+// Economiza espaço e transferência no Supabase sem perda perceptível para fala.
+// O ajuste pronto LOW_QUALITY do expo-audio não serve: no Android grava em AMR, abafado.
+const GRAVACAO_VOZ: RecordingOptions = {
+  extension: '.m4a',
+  sampleRate: 44100,
+  numberOfChannels: 1,
+  bitRate: 64000,
+  android: { outputFormat: 'mpeg4', audioEncoder: 'aac' },
+  ios: {
+    outputFormat: IOSOutputFormat.MPEG4AAC,
+    audioQuality: AudioQuality.MEDIUM,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+  web: { mimeType: 'audio/webm', bitsPerSecond: 64000 },
+};
+
+// No navegador a gravação sai em WebM; no celular, em M4A
+const ARQUIVO_GRAVACAO =
+  Platform.OS === 'web'
+    ? { extensao: 'webm', tipo: 'audio/webm' }
+    : { extensao: 'm4a', tipo: 'audio/mp4' };
+
+const COLUNAS = 'id, tipo, ordem, caminho_storage, texto_origem, titulo, url_externa';
 
 const IDIOMAS = [
   { valor: 'pt-BR', rotulo: 'Português' },
@@ -40,7 +75,8 @@ const ROTULO_TIPO: Record<string, string> = {
   audio_upload: 'Áudio enviado',
   audio_texto: 'Texto lido em voz',
   imagem: 'Foto',
-  video: 'Vídeo',
+  video: 'Vídeo enviado',
+  youtube: 'Vídeo do YouTube',
 };
 
 export default function ConteudoAula() {
@@ -55,6 +91,9 @@ export default function ConteudoAula() {
   const [erro, setErro] = useState<string | null>(null);
 
   const [modalTextoAberto, setModalTextoAberto] = useState(false);
+  const [modalYoutubeAberto, setModalYoutubeAberto] = useState(false);
+  const [linkVideo, setLinkVideo] = useState('');
+  const [erroLink, setErroLink] = useState<string | null>(null);
   const [textoVoz, setTextoVoz] = useState('');
   const [idiomaTexto, setIdiomaTexto] = useState('pt-BR');
   const [midiaParaRemover, setMidiaParaRemover] = useState<Midia | null>(null);
@@ -65,7 +104,7 @@ export default function ConteudoAula() {
   const [tituloEditado, setTituloEditado] = useState('');
 
   const [gravando, setGravando] = useState(false);
-  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const audioRecorder = useAudioRecorder(GRAVACAO_VOZ);
 
   async function carregarMidias() {
     const { data } = await supabase
@@ -169,7 +208,8 @@ export default function ConteudoAula() {
     await carregarMidias();
   }
 
-  async function escolherFotoOuVideo() {
+  // Vídeos não são enviados para o Storage (ocupam muito espaço): vão por link do YouTube
+  async function escolherFoto() {
     const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permissao.granted) {
       setErro('Permissão de galeria negada.');
@@ -177,21 +217,20 @@ export default function ConteudoAula() {
     }
 
     const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images', 'videos'],
+      mediaTypes: ['images'],
       quality: 0.8,
     });
     if (resultado.canceled) return;
 
     const item = resultado.assets[0];
-    const ehVideo = item.type === 'video';
-    const nomeArquivo = item.fileName ?? (ehVideo ? 'video.mp4' : 'foto.jpg');
-    const contentType = item.mimeType ?? (ehVideo ? 'video/mp4' : 'image/jpeg');
+    const nomeArquivo = item.fileName ?? 'foto.jpg';
+    const contentType = item.mimeType ?? 'image/jpeg';
 
     setEnviando(true);
     setErro(null);
     try {
       const caminho = await enviarArquivo(item.uri, usuario!.id, aulaId, nomeArquivo, contentType);
-      await criarMidia({ tipo: ehVideo ? 'video' : 'imagem', caminho_storage: caminho });
+      await criarMidia({ tipo: 'imagem', caminho_storage: caminho });
     } catch {
       setErro('Não foi possível enviar o arquivo.');
     } finally {
@@ -249,8 +288,8 @@ export default function ConteudoAula() {
         uri,
         usuario.id,
         aulaId,
-        `gravacao-${Date.now()}.m4a`,
-        'audio/m4a'
+        `gravacao-${Date.now()}.${ARQUIVO_GRAVACAO.extensao}`,
+        ARQUIVO_GRAVACAO.tipo
       );
       await criarMidia({ tipo: 'audio_gravado', caminho_storage: caminho });
     } catch {
@@ -265,6 +304,18 @@ export default function ConteudoAula() {
     await criarMidia({ tipo: 'audio_texto', texto_origem: textoVoz.trim(), idioma: idiomaTexto });
     setTextoVoz('');
     setModalTextoAberto(false);
+  }
+
+  async function salvarYoutube() {
+    const id = extrairIdYoutube(linkVideo);
+    if (!id) {
+      setErroLink('Esse link não é de um vídeo do YouTube. Copie o endereço do vídeo e cole aqui.');
+      return;
+    }
+    await criarMidia({ tipo: 'youtube', url_externa: linkYoutube(id) });
+    setLinkVideo('');
+    setErroLink(null);
+    setModalYoutubeAberto(false);
   }
 
   return (
@@ -288,6 +339,11 @@ export default function ConteudoAula() {
             {midia.tipo === 'audio_texto' && (
               <Text style={styles.itemPreview} numberOfLines={2}>
                 {midia.texto_origem}
+              </Text>
+            )}
+            {midia.tipo === 'youtube' && (
+              <Text style={styles.itemPreview} numberOfLines={1}>
+                {midia.url_externa}
               </Text>
             )}
           </View>
@@ -406,8 +462,19 @@ export default function ConteudoAula() {
         Escreva o título e depois escolha o que adicionar abaixo.
       </Text>
 
-      <Pressable style={styles.botao} onPress={escolherFotoOuVideo} disabled={enviando}>
-        <Text style={styles.botaoTexto}>Foto ou vídeo</Text>
+      <Pressable
+        style={styles.botao}
+        onPress={() => {
+          setErroLink(null);
+          setModalYoutubeAberto(true);
+        }}
+        disabled={enviando}
+      >
+        <Text style={styles.botaoTexto}>Vídeo do YouTube (link)</Text>
+      </Pressable>
+
+      <Pressable style={styles.botao} onPress={escolherFoto} disabled={enviando}>
+        <Text style={styles.botaoTexto}>Foto</Text>
       </Pressable>
 
       <Pressable style={styles.botao} onPress={escolherAudioDoDispositivo} disabled={enviando}>
@@ -425,6 +492,54 @@ export default function ConteudoAula() {
       <Pressable style={styles.botao} onPress={() => setModalTextoAberto(true)} disabled={enviando}>
         <Text style={styles.botaoTexto}>Escrever texto (voz)</Text>
       </Pressable>
+
+      <Modal
+        visible={modalYoutubeAberto}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalYoutubeAberto(false)}
+      >
+        <View style={styles.modalFundo}>
+          <View style={styles.modalCaixa}>
+            <Text style={styles.modalTitulo}>Vídeo do YouTube</Text>
+            <Text style={styles.rotuloCampo}>Título (opcional)</Text>
+            <TextInput
+              style={styles.campoTitulo}
+              value={tituloNovo}
+              onChangeText={setTituloNovo}
+              placeholder="Ex: Diálogo no aeroporto"
+              placeholderTextColor={cores.textoSuave}
+            />
+            <Text style={styles.rotuloCampo}>Link do vídeo</Text>
+            <TextInput
+              style={styles.campoTitulo}
+              value={linkVideo}
+              onChangeText={(texto) => {
+                setLinkVideo(texto);
+                setErroLink(null);
+              }}
+              onSubmitEditing={salvarYoutube}
+              placeholder="https://youtu.be/..."
+              placeholderTextColor={cores.textoSuave}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoFocus
+            />
+            <Text style={styles.dica}>
+              No YouTube, publique o vídeo como “Não listado”: só quem tem o link consegue assistir.
+            </Text>
+            {erroLink && <Text style={styles.erro}>{erroLink}</Text>}
+            <View style={styles.modalBotoes}>
+              <Pressable onPress={() => setModalYoutubeAberto(false)}>
+                <Text style={styles.modalCancelar}>Cancelar</Text>
+              </Pressable>
+              <Pressable onPress={salvarYoutube}>
+                <Text style={styles.modalSalvar}>Adicionar</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={modalTextoAberto} transparent animationType="fade">
         <View style={styles.modalFundo}>

@@ -423,3 +423,13 @@
 -- =====================================================================
 -- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha
 -- =====================================================================
+
+-- ===== Patch 11: videos pelo YouTube =====
+-- Novo tipo de conteúdo 'youtube': o vídeo fica no YouTube (não ocupa espaço no Supabase)
+-- e a aula guarda só o link em url_externa. Vídeos já enviados ('video') continuam valendo.
+
+alter table midias drop constraint if exists midias_tipo_check;
+alter table midias add constraint midias_tipo_check
+  check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube'));
+
+alter table midias add column url_externa text;

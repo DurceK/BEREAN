@@ -56,11 +56,13 @@ create table aulas (
 --      'audio_upload'  -> mentor enviou um arquivo de áudio do dispositivo
 --      'audio_texto'   -> mentor escreveu um texto e o app lê em voz alta (voz nativa do celular, sem custo)
 --      'imagem'        -> foto enviada
---      'video'         -> vídeo enviado
+--      'video'         -> vídeo enviado para o Storage (não é mais oferecido no app; os antigos continuam)
+--      'youtube'       -> vídeo no YouTube; guarda só o link em url_externa
 create table midias (
   id uuid primary key default gen_random_uuid(),
   aula_id uuid not null references aulas (id) on delete cascade,
-  tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video')),
+  tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube')),
+  url_externa text, -- link do vídeo quando tipo = 'youtube'
   titulo text, -- opcional, mostrado acima do conteúdo
   ordem integer not null default 0,
   caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'

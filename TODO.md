@@ -17,6 +17,8 @@
   - [ ] Senha esquecida do próprio mentor: hoje só pelo painel do Supabase (Authentication → Users)
 
 - [x] **Tela da aula para o mentorado**: player de áudio (±10s, velocidade), vídeo, foto, texto lido em voz com destaque da palavra, progresso (em andamento ao abrir, concluída pelo botão)
+  - [x] Vídeos por link do YouTube no lugar de envio de vídeo (economiza o Storage)
+  - [ ] Testar o vídeo do YouTube no app instalado no celular (Expo Go): no navegador já funciona
   - [ ] Transcrição sincronizada para áudio gravado/enviado (a tabela `transcricoes` existe, mas ainda não há como cadastrar os trechos)
   - [ ] Mini-player fixo para continuar ouvindo ao navegar entre telas (do briefing)
   - [ ] Guardar a posição do áudio pra "continuar de onde parou" (coluna `progresso.posicao_segundos` existe, ainda não é usada)
