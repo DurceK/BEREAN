@@ -26,6 +26,7 @@
 
 - [ ] **Nome do software (by DurceK)**: definir quando houver contrato formal (BEREAN é a marca da Camila, a 1ª cliente)
   - Direção: um acrônimo baseado na função do produto
+  - Candidato: "ESintelligence" (ES = Espírito Santo + intelligence). INPI livre em 12/10/2026. Ressalvas: "ES" é lido como o estado do Espírito Santo ou a Espanha; "intelligence" sugere IA/BI, que o app não tem; e é palavra fraca para registro ("Sales Intelligence" foi indeferido duas vezes)
   - Descartados: "Parakletos" (já pedido no INPI na classe 41, educação) e "Mentora" (parecido com Mentorh)
   - [ ] Checar o nome escolhido no INPI (classes 9, 41 e 42) e ver se o domínio está livre
   - [x] O "berean" que sobrou por dentro do código não atrapalha: o domínio de login virou configuração por cliente (`dominioLogin`), e cada app tem o próprio armazenamento no celular
