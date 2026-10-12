@@ -21,12 +21,17 @@
   - [x] Vídeos por link do YouTube no lugar de envio de vídeo (economiza o Storage)
   - [x] Fotos reduzidas e comprimidas antes de enviar (aula ≤1280 px, perfil 256 px) e limite de 30 MB por áudio, reforçado no bucket (patch 14)
   - [x] Exercícios de múltipla escolha: perguntas com 2 a 6 alternativas e explicação, correção na hora pelo servidor (gabarito escondido do aluno), pode refazer, ficha mostra a 1ª tentativa
+  - [x] Novos tipos de pergunta (migration 20261013000000): digitar (copiar/completar/traduzir), ordenar palavras, ligar colunas e resposta livre (o mentor lê na ficha). Correção no servidor ignora maiúsculas, pontuação e espaços; acentos contam
+  - [x] Material de Inglês para Viagem (Missões 01 a 15) no curso de Inglês da Camila: script em `clientes/berean/conteudo/` (fora do GitHub)
   - [x] Continuar de onde parou: posição de cada áudio e vídeo do YouTube e o que já foi visto ficam em `progresso_midias` (vale entre aparelhos); "Continuar aula" abre a última aula vista
   - [x] Limpeza do banco: removidas a tabela `transcricoes` e a coluna `progresso.posicao_segundos`, que ficaram sem uso (patch 15)
 
 - [ ] **Nome do software (by DurceK)**: definir quando houver contrato formal (BEREAN é a marca da Camila, a 1ª cliente)
   - Direção: um acrônimo baseado na função do produto
   - Candidato: "ESintelligence" (ES = Espírito Santo + intelligence). INPI livre em 12/10/2026. Ressalvas: "ES" é lido como o estado do Espírito Santo ou a Espanha; "intelligence" sugere IA/BI, que o app não tem; e é palavra fraca para registro ("Sales Intelligence" foi indeferido duas vezes)
+  - Candidato: "ATOS" (Agente de Transmissão e Orientação à Sabedoria; liga aos bereanos de Atos 17:11). "ATOS" sozinho está bloqueado no INPI (13/10/2026): Atos Group tem registros em vigor nas classes 09 e 42 (software); EBC e outro titular na 41 (educação); a "Associação Atos Escola Cristã de Liderança" foi indeferida na 41. Ressalva: "Agente" lembra agente de IA
+    - Variação "Atos 17": nenhum registro no INPI (13/10/2026), mas ainda contém "ATOS" (risco menor, não zero; consultar especialista antes de registrar)
+    - Dá para usar "Atos" como nome interno do projeto, sem registro
   - Descartados: "Parakletos" (já pedido no INPI na classe 41, educação) e "Mentora" (parecido com Mentorh)
   - [ ] Checar o nome escolhido no INPI (classes 9, 41 e 42) e ver se o domínio está livre
   - [x] O "berean" que sobrou por dentro do código não atrapalha: o domínio de login virou configuração por cliente (`dominioLogin`), e cada app tem o próprio armazenamento no celular

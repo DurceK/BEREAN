@@ -40,3 +40,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# conteúdo dos cursos de cada cliente (material deles, não vai para o GitHub público)
+clientes/*/conteudo/

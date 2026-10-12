@@ -27,6 +27,12 @@ function haQuanto(iso: string) {
   return `há ${dias} dias`;
 }
 
+type ExerciciosDaAula = {
+  acertos: number;
+  respondidas: number;
+  livres: { enunciado: string; texto: string }[]; // respostas livres, para o mentor ler
+};
+
 function porcentagem(parte: number, total: number) {
   return total === 0 ? 0 : Math.round((parte / total) * 100);
 }
@@ -40,10 +46,8 @@ export default function FichaAluno() {
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [progresso, setProgresso] = useState<Record<string, Progresso>>({});
-  // Acertos nos exercícios de cada aula (1ª tentativa)
-  const [exercicios, setExercicios] = useState<
-    Record<string, { acertos: number; respondidas: number }>
-  >({});
+  // Acertos nos exercícios de cada aula (1ª tentativa) e as respostas livres, para ler
+  const [exercicios, setExercicios] = useState<Record<string, ExerciciosDaAula>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -73,7 +77,7 @@ export default function FichaAluno() {
           // 1ª tentativa de cada pergunta respondida, com a aula a que pertence
           supabase
             .from('respostas')
-            .select('correta, questoes!inner(midias!inner(aula_id))')
+            .select('correta, texto, questoes!inner(tipo, enunciado, midias!inner(aula_id))')
             .eq('mentorado_id', alunoId),
         ]);
         if (cancelado) return;
@@ -100,14 +104,22 @@ export default function FichaAluno() {
           mapa[linha.aula_id] = { status: linha.status, atualizado_em: linha.atualizado_em };
         }
 
-        const porAula: Record<string, { acertos: number; respondidas: number }> = {};
+        const porAula: Record<string, ExerciciosDaAula> = {};
         for (const linha of resRespostas.data ?? []) {
-          const questao = linha.questoes as unknown as { midias: { aula_id: string } } | null;
+          const questao = linha.questoes as unknown as {
+            tipo: string;
+            enunciado: string;
+            midias: { aula_id: string };
+          } | null;
           const aulaId = questao?.midias?.aula_id;
           if (!aulaId) continue;
-          const atual = porAula[aulaId] ?? { acertos: 0, respondidas: 0 };
-          atual.respondidas += 1;
-          if (linha.correta) atual.acertos += 1;
+          const atual = porAula[aulaId] ?? { acertos: 0, respondidas: 0, livres: [] };
+          if (questao.tipo === 'livre') {
+            atual.livres.push({ enunciado: questao.enunciado, texto: linha.texto ?? '' });
+          } else {
+            atual.respondidas += 1;
+            if (linha.correta) atual.acertos += 1;
+          }
           porAula[aulaId] = atual;
         }
 
@@ -221,12 +233,18 @@ export default function FichaAluno() {
                             ? `Começou em ${formatarData(p.atualizado_em)}`
                             : 'Não iniciada'}
                       </Text>
-                      {exercicios[aula.id] && (
+                      {!!exercicios[aula.id]?.respondidas && (
                         <Text style={estilos.exercicios}>
                           Exercícios: {exercicios[aula.id].acertos} de{' '}
                           {exercicios[aula.id].respondidas} acertos (1ª tentativa)
                         </Text>
                       )}
+                      {exercicios[aula.id]?.livres.map((livre, i) => (
+                        <View key={i} style={estilos.livre}>
+                          <Text style={estilos.livreEnunciado}>{livre.enunciado}</Text>
+                          <Text style={estilos.livreTexto}>{livre.texto}</Text>
+                        </View>
+                      ))}
                     </View>
                   );
                 })}
@@ -342,4 +360,14 @@ const criarEstilos = (c: Cores) =>
       color: c.texto,
       paddingLeft: 20,
     },
+    livre: {
+      width: '100%',
+      marginLeft: 20,
+      paddingLeft: 10,
+      borderLeftWidth: 2,
+      borderLeftColor: c.destaque,
+      gap: 2,
+    },
+    livreEnunciado: { fontFamily: fontes.textoMedio, fontSize: 12, color: c.textoSuave },
+    livreTexto: { fontFamily: fontes.texto, fontSize: 13, color: c.texto, lineHeight: 19 },
   });

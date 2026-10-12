@@ -85,7 +85,7 @@ const ARQUIVO_GRAVACAO =
     ? { extensao: 'webm', tipo: 'audio/webm' }
     : { extensao: 'm4a', tipo: 'audio/mp4' };
 
-const COLUNAS = 'id, tipo, ordem, caminho_storage, texto_origem, titulo, url_externa';
+const COLUNAS = 'id, tipo, ordem, caminho_storage, texto_origem, idioma, titulo, url_externa';
 
 const IDIOMAS = [
   { valor: 'pt-BR', rotulo: 'Português' },
@@ -99,7 +99,7 @@ const ROTULO_TIPO: Record<string, string> = {
   imagem: 'Foto',
   video: 'Vídeo enviado',
   youtube: 'Vídeo do YouTube',
-  exercicio: 'Exercício de múltipla escolha',
+  exercicio: 'Exercício',
 };
 
 export default function ConteudoAula() {
@@ -123,8 +123,14 @@ export default function ConteudoAula() {
   const [removendo, setRemovendo] = useState(false);
   // Título que vai junto com o próximo item adicionado
   const [tituloNovo, setTituloNovo] = useState('');
-  const [midiaParaRenomear, setMidiaParaRenomear] = useState<Midia | null>(null);
+  // Item sendo editado (título e, conforme o tipo, texto/idioma ou link)
+  const [midiaEmEdicao, setMidiaEmEdicao] = useState<Midia | null>(null);
   const [tituloEditado, setTituloEditado] = useState('');
+  const [textoEditado, setTextoEditado] = useState('');
+  const [idiomaEditado, setIdiomaEditado] = useState('pt-BR');
+  const [linkEditado, setLinkEditado] = useState('');
+  const [erroEdicao, setErroEdicao] = useState<string | null>(null);
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
   const [gravando, setGravando] = useState(false);
   const audioRecorder = useAudioRecorder(GRAVACAO_VOZ);
@@ -201,20 +207,49 @@ export default function ConteudoAula() {
     }
   }
 
-  function abrirRenomear(midia: Midia) {
+  // Exercício abre a tela das perguntas (lá o título também é editável); o resto, a janela
+  function abrirEdicao(midia: Midia) {
+    if (midia.tipo === 'exercicio') {
+      router.push(`/(mentor)/exercicio/${midia.id}`);
+      return;
+    }
     setTituloEditado(midia.titulo ?? '');
-    setMidiaParaRenomear(midia);
+    setTextoEditado(midia.texto_origem ?? '');
+    setIdiomaEditado(midia.idioma ?? 'pt-BR');
+    setLinkEditado(midia.url_externa ?? '');
+    setErroEdicao(null);
+    setMidiaEmEdicao(midia);
   }
 
-  async function salvarTitulo() {
-    if (!midiaParaRenomear) return;
-    setErro(null);
-    const { error } = await supabase
-      .from('midias')
-      .update({ titulo: tituloEditado.trim() || null })
-      .eq('id', midiaParaRenomear.id);
-    if (error) setErro('Não foi possível salvar o título.');
-    setMidiaParaRenomear(null);
+  async function salvarEdicao() {
+    if (!midiaEmEdicao) return;
+    const campos: Partial<Midia> = { titulo: tituloEditado.trim() || null };
+    if (midiaEmEdicao.tipo === 'audio_texto') {
+      if (!textoEditado.trim()) {
+        setErroEdicao('Escreva o texto que a voz vai ler.');
+        return;
+      }
+      campos.texto_origem = textoEditado.trim();
+      campos.idioma = idiomaEditado;
+    }
+    if (midiaEmEdicao.tipo === 'youtube') {
+      const id = extrairIdYoutube(linkEditado);
+      if (!id) {
+        setErroEdicao(
+          'Esse link não é de um vídeo do YouTube. Copie o endereço do vídeo e cole aqui.'
+        );
+        return;
+      }
+      campos.url_externa = linkYoutube(id);
+    }
+    setSalvandoEdicao(true);
+    const { error } = await supabase.from('midias').update(campos).eq('id', midiaEmEdicao.id);
+    setSalvandoEdicao(false);
+    if (error) {
+      setErroEdicao('Não foi possível salvar. Tente de novo.');
+      return;
+    }
+    setMidiaEmEdicao(null);
     await carregarMidias();
   }
 
@@ -390,7 +425,12 @@ export default function ConteudoAula() {
 
       {midias.map((midia, indice) => (
         <View key={midia.id} style={styles.itemMidia}>
-          <View style={styles.itemInfo}>
+          <Pressable
+            style={styles.itemInfo}
+            onPress={() => abrirEdicao(midia)}
+            accessibilityRole="button"
+            accessibilityLabel={`Editar ${midia.titulo || ROTULO_TIPO[midia.tipo]}`}
+          >
             <Text style={styles.itemTexto}>
               {indice + 1}. {midia.titulo || ROTULO_TIPO[midia.tipo] || midia.tipo}
             </Text>
@@ -405,19 +445,13 @@ export default function ConteudoAula() {
                 {midia.url_externa}
               </Text>
             )}
-            {midia.tipo === 'exercicio' && (
-              <Link href={`/(mentor)/exercicio/${midia.id}`} asChild>
-                <Pressable>
-                  <Text style={styles.itemLink}>Editar perguntas ›</Text>
-                </Pressable>
-              </Link>
-            )}
-          </View>
+            {midia.tipo === 'exercicio' && <Text style={styles.itemLink}>Editar perguntas ›</Text>}
+          </Pressable>
           <View style={styles.itemAcoes}>
             <Pressable
               style={styles.acao}
-              onPress={() => abrirRenomear(midia)}
-              accessibilityLabel={midia.titulo ? 'Trocar título' : 'Dar um título'}
+              onPress={() => abrirEdicao(midia)}
+              accessibilityLabel="Editar"
             >
               <Text style={styles.acaoTexto}>✎</Text>
             </Pressable>
@@ -484,30 +518,86 @@ export default function ConteudoAula() {
       {enviando && <ActivityIndicator color={cores.primaria} style={{ marginVertical: 12 }} />}
 
       <Modal
-        visible={midiaParaRenomear !== null}
+        visible={midiaEmEdicao !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setMidiaParaRenomear(null)}
+        onRequestClose={() => setMidiaEmEdicao(null)}
       >
         <View style={styles.modalFundo}>
           <View style={styles.modalCaixa}>
-            <Text style={styles.modalTitulo}>Título do conteúdo</Text>
+            <Text style={styles.modalTitulo}>
+              Editar {midiaEmEdicao ? ROTULO_TIPO[midiaEmEdicao.tipo]?.toLowerCase() : ''}
+            </Text>
+            <Text style={styles.rotuloCampo}>Título (opcional)</Text>
             <TextInput
               style={styles.campoTitulo}
               value={tituloEditado}
               onChangeText={setTituloEditado}
-              onSubmitEditing={salvarTitulo}
               placeholder="Ex: Diálogo no aeroporto"
               placeholderTextColor={cores.textoSuave}
               autoFocus
             />
-            <Text style={styles.dica}>Deixe em branco para não mostrar título.</Text>
+            {midiaEmEdicao?.tipo === 'audio_texto' && (
+              <>
+                <Text style={styles.rotuloCampo}>Texto</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  value={textoEditado}
+                  onChangeText={setTextoEditado}
+                  placeholder="Digite o texto"
+                  placeholderTextColor={cores.textoSuave}
+                  multiline
+                />
+                <Text style={styles.idiomaRotulo}>Idioma da voz</Text>
+                <View style={styles.idiomas}>
+                  {IDIOMAS.map((opcao) => (
+                    <Pressable
+                      key={opcao.valor}
+                      style={[styles.idioma, idiomaEditado === opcao.valor && styles.idiomaAtivo]}
+                      onPress={() => setIdiomaEditado(opcao.valor)}
+                    >
+                      <Text
+                        style={[
+                          styles.idiomaTexto,
+                          idiomaEditado === opcao.valor && styles.idiomaTextoAtivo,
+                        ]}
+                      >
+                        {opcao.rotulo}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
+            {midiaEmEdicao?.tipo === 'youtube' && (
+              <>
+                <Text style={styles.rotuloCampo}>Link do vídeo</Text>
+                <TextInput
+                  style={styles.campoTitulo}
+                  value={linkEditado}
+                  onChangeText={(texto) => {
+                    setLinkEditado(texto);
+                    setErroEdicao(null);
+                  }}
+                  placeholder="https://youtu.be/..."
+                  placeholderTextColor={cores.textoSuave}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </>
+            )}
+            {!!midiaEmEdicao?.caminho_storage && (
+              <Text style={styles.dica}>
+                Para trocar o arquivo, remova este item e adicione o novo.
+              </Text>
+            )}
+            {erroEdicao && <Text style={styles.erro}>{erroEdicao}</Text>}
             <View style={styles.modalBotoes}>
-              <Pressable onPress={() => setMidiaParaRenomear(null)}>
+              <Pressable onPress={() => setMidiaEmEdicao(null)}>
                 <Text style={styles.modalCancelar}>Cancelar</Text>
               </Pressable>
-              <Pressable onPress={salvarTitulo}>
-                <Text style={styles.modalSalvar}>Salvar</Text>
+              <Pressable onPress={salvarEdicao} disabled={salvandoEdicao}>
+                <Text style={styles.modalSalvar}>{salvandoEdicao ? 'Salvando...' : 'Salvar'}</Text>
               </Pressable>
             </View>
           </View>
@@ -540,7 +630,7 @@ export default function ConteudoAula() {
       </Pressable>
 
       <Pressable style={styles.botao} onPress={criarExercicio} disabled={enviando}>
-        <Text style={styles.botaoTexto}>Exercício de múltipla escolha</Text>
+        <Text style={styles.botaoTexto}>Exercício</Text>
       </Pressable>
 
       <Pressable style={styles.botao} onPress={escolherFoto} disabled={enviando}>
