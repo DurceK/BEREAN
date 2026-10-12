@@ -20,12 +20,14 @@ export type Cores = {
 // As cores vêm do cliente (clientes/<pasta>/cliente.json), com versão clara e escura
 const { claro, escuro } = cliente.cores;
 
+// Nome de cada papel de fonte. O arquivo de cada um vem do cliente (clientes/<pasta>/fontes.ts)
+// e é registrado com estes nomes no app/_layout.tsx.
 export const fontes = {
-  titulo: 'Cinzel_700Bold',
-  tituloLeve: 'Cinzel_600SemiBold',
-  texto: 'Montserrat_400Regular',
-  textoMedio: 'Montserrat_500Medium',
-  textoForte: 'Montserrat_600SemiBold',
+  titulo: 'titulo',
+  tituloLeve: 'tituloLeve',
+  texto: 'texto',
+  textoMedio: 'textoMedio',
+  textoForte: 'textoForte',
 };
 
 export type Tema = { cores: Cores; escuro: boolean };

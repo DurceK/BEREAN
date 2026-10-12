@@ -1,6 +1,7 @@
 // Dados do cliente para quem o app foi gerado (nome, logo, cores, domínio de login).
 // "@cliente/" aponta para clientes/<pasta> escolhida em CLIENTE (ver metro.config.js).
 import dados from '@cliente/cliente.json';
+import fontes from '@cliente/fontes';
 import type { Cores } from './tema';
 
 type Cliente = {
@@ -13,3 +14,6 @@ type Cliente = {
 export const cliente: Cliente = dados;
 
 export const logoDoCliente = require('@cliente/logo.png');
+
+// Arquivos de fonte de cada papel (titulo, tituloLeve, texto, textoMedio, textoForte)
+export const fontesDoCliente = fontes;

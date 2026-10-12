@@ -31,11 +31,11 @@
   - [x] O "berean" que sobrou por dentro do código não atrapalha: o domínio de login virou configuração por cliente (`dominioLogin`), e cada app tem o próprio armazenamento no celular
 
 - [x] **Versão por cliente (ícone, nome e cores)**: pasta `clientes/<cliente>/` com `cliente.json`, imagens e `.env`; trocar com `npm run cliente -- <pasta>` (passo a passo em `clientes/LEIAME.md`)
-  - [ ] Fontes por cliente (hoje Cinzel e Montserrat valem para todos)
+  - [x] Fontes por cliente: `clientes/<cliente>/fontes.ts`
 
 - [x] **Banco em migrations do Supabase CLI**: `supabase/migrations/` (a inicial junta os patches 01 a 15); mudança nova = arquivo novo + `npx.cmd supabase db push`
   - [x] Marcar a migration inicial como aplicada no banco da Camila (`migration repair`)
-  - [ ] Testar a migration inicial num projeto Supabase vazio de teste
+  - [x] Testar a migration inicial num projeto Supabase vazio de teste (12/10/2026: `db push` criou o banco sem erros)
 
 - [x] **Atualizar pacotes do Expo** (SDK 57: expo 57.0.11 → 57.0.27 e demais pacotes)
 

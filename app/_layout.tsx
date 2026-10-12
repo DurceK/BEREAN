@@ -3,13 +3,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import { useFonts, Cinzel_600SemiBold, Cinzel_700Bold } from '@expo-google-fonts/cinzel';
-import {
-  Montserrat_400Regular,
-  Montserrat_500Medium,
-  Montserrat_600SemiBold,
-} from '@expo-google-fonts/montserrat';
+import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from '../lib/auth';
+import { fontesDoCliente } from '../lib/cliente';
 import { useTema } from '../lib/tema';
 
 SplashScreen.preventAutoHideAsync();
@@ -42,7 +38,9 @@ function RaizProtegida() {
       <Stack.Protected guard={!!session && !!usuario?.precisaTrocarSenha}>
         <Stack.Screen name="trocar-senha" />
       </Stack.Protected>
-      <Stack.Protected guard={!!session && !usuario?.precisaTrocarSenha && usuario?.papel === 'mentor'}>
+      <Stack.Protected
+        guard={!!session && !usuario?.precisaTrocarSenha && usuario?.papel === 'mentor'}
+      >
         <Stack.Screen name="(mentor)" />
       </Stack.Protected>
       <Stack.Protected
@@ -55,13 +53,8 @@ function RaizProtegida() {
 }
 
 export default function RootLayout() {
-  const [fontesCarregadas, erroFontes] = useFonts({
-    Cinzel_600SemiBold,
-    Cinzel_700Bold,
-    Montserrat_400Regular,
-    Montserrat_500Medium,
-    Montserrat_600SemiBold,
-  });
+  // Registra cada fonte do cliente com o nome do seu papel (titulo, texto...)
+  const [fontesCarregadas, erroFontes] = useFonts(fontesDoCliente);
 
   useEffect(() => {
     if (fontesCarregadas || erroFontes) SplashScreen.hideAsync();

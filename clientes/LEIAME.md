@@ -17,6 +17,7 @@ npx expo start -c
 | `android-icon-foreground.png` | Ícone do Android (desenho sem fundo) | Sim |
 | `favicon.png` | Ícone da aba do navegador | Sim |
 | `logo.png` | Logo da tela de login | Sim |
+| `fontes.ts` | Qual fonte usar em cada papel (título, texto...) | Sim |
 | `.env` | Endereço e chave pública do Supabase do cliente | **Não** (fica só no PC) |
 
 O `.env` do cliente tem só estas duas linhas, copiadas do painel do Supabase dele
@@ -39,6 +40,12 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 - `enfeite`: detalhe opcional acima do nome no login (ex: `★ ★ ★`). Pode apagar a linha.
 - `corDeFundo`: cor da tela de abertura e do fundo do ícone no Android.
 - `cores.claro` e `cores.escuro`: as cores do app nos dois temas.
+
+## Fontes
+
+O `fontes.ts` liga cada papel do app a um arquivo de fonte do Google Fonts. Para outra fonte:
+`npm install @expo-google-fonts/<nome-da-fonte>` e troque os imports do `fontes.ts` do cliente.
+Os papéis são `titulo`, `tituloLeve`, `texto`, `textoMedio` e `textoForte`, e os cinco precisam existir.
 
 ## Cliente novo, passo a passo
 
