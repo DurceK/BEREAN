@@ -577,23 +577,24 @@
 -- revoke execute on function responder_questao(uuid, uuid) from public, anon;
 -- grant execute on function responder_questao(uuid, uuid) to authenticated;
 
-
--- =====================================================================
--- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha
--- =====================================================================
-
--- ===== Patch 14: limites de tamanho e tipo nos arquivos =====
+-- ===== Patch 14: limites de tamanho e tipo nos arquivos (JÁ APLICADO) =====
 -- Reforça no servidor o que o app já faz (fotos reduzidas e comprimidas, vídeos só pelo
 -- YouTube), para nenhum arquivo grande passar e gastar o plano gratuito.
 --   midias:   até 30 MB por arquivo, só imagem e áudio (vídeo não é mais enviado)
 --   avatares: até 1 MB (a foto já sai do app com ~20 KB)
 -- Arquivos que já estão guardados não são afetados.
+--
+-- update storage.buckets
+-- set file_size_limit = 31457280,
+--     allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'audio/*']
+-- where id = 'midias';
+--
+-- update storage.buckets
+-- set file_size_limit = 1048576
+-- where id = 'avatares';
 
-update storage.buckets
-set file_size_limit = 31457280,
-    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'audio/*']
-where id = 'midias';
 
-update storage.buckets
-set file_size_limit = 1048576
-where id = 'avatares';
+-- =====================================================================
+-- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha
+-- =====================================================================
+
