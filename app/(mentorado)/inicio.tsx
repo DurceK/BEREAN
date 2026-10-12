@@ -23,6 +23,8 @@ export default function MentoradoInicio() {
   const [categorias, setCategorias] = useState<CategoriaResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [progresso, setProgresso] = useState<Record<string, string>>({});
+  // Última aula aberta neste aparelho, para o botão "Continuar aula"
+  const [ultimaAula, setUltimaAula] = useState<string | null>(null);
   // Cursos e disciplinas que o aluno deixou fechados (guardado só neste aparelho)
   const [fechados, setFechados] = useState<Record<string, boolean>>({});
   const chaveFechados = `berean:fechados:${usuario?.id ?? ''}`;
@@ -51,6 +53,11 @@ export default function MentoradoInicio() {
           for (const linha of data ?? []) mapa[linha.aula_id] = linha.status;
           setProgresso(mapa);
         });
+      AsyncStorage.getItem(`berean:ultimaAula:${usuario.id}`)
+        .then((id) => {
+          if (!cancelado) setUltimaAula(id);
+        })
+        .catch(() => {});
       return () => {
         cancelado = true;
       };
@@ -115,7 +122,9 @@ export default function MentoradoInicio() {
   const todasAsAulas = categorias.flatMap((c) => c.modulos.flatMap((m) => m.aulas));
   const concluidas = todasAsAulas.filter((a) => progresso[a.id] === 'concluido').length;
   const emAndamento = todasAsAulas.filter((a) => progresso[a.id] === 'em_andamento').length;
-  const proxima = todasAsAulas.find((a) => progresso[a.id] !== 'concluido');
+  // Continua a última aula aberta se ela ainda não foi concluída; senão, a primeira pendente
+  const ultima = todasAsAulas.find((a) => a.id === ultimaAula && progresso[a.id] !== 'concluido');
+  const proxima = ultima ?? todasAsAulas.find((a) => progresso[a.id] !== 'concluido');
 
   return (
     <ScrollView style={styles.fundo}>

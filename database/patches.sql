@@ -419,17 +419,49 @@
 --
 -- alter table midias add column titulo text;
 
+-- ===== Patch 11: videos pelo YouTube (JÁ APLICADO) =====
+-- -- Novo tipo de conteúdo 'youtube': o vídeo fica no YouTube (não ocupa espaço no Supabase)
+-- -- e a aula guarda só o link em url_externa. Vídeos já enviados ('video') continuam valendo.
+--
+-- alter table midias drop constraint if exists midias_tipo_check;
+-- alter table midias add constraint midias_tipo_check
+--   check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube'));
+--
+-- alter table midias add column url_externa text;
+
+-- ===== Patch 12: continuar de onde parou (JÁ APLICADO) =====
+-- -- Guarda, para cada aluno e cada mídia, o ponto em que ele parou (em segundos) e se já
+-- -- viu até o fim. Serve para retomar áudios e vídeos e para a conclusão automática da aula
+-- -- valer entre visitas e aparelhos diferentes.
+--
+-- create table progresso_midias (
+--   mentorado_id uuid not null references usuarios (id) on delete cascade,
+--   midia_id uuid not null references midias (id) on delete cascade,
+--   posicao_segundos numeric not null default 0,
+--   visto boolean not null default false,
+--   atualizado_em timestamptz not null default now(),
+--   primary key (mentorado_id, midia_id)
+-- );
+--
+-- alter table progresso_midias enable row level security;
+--
+-- create policy "mentorado ve o proprio progresso nas midias"
+-- on progresso_midias for select to authenticated
+-- using (mentorado_id = auth.uid());
+--
+-- create policy "mentor ve o progresso nas midias do seu conteudo"
+-- on progresso_midias for select to authenticated
+-- using (e_dono_da_categoria(categoria_da_midia(midia_id)));
+--
+-- create policy "mentorado registra o proprio progresso nas midias"
+-- on progresso_midias for insert to authenticated
+-- with check (mentorado_id = auth.uid() and pode_ver_categoria(categoria_da_midia(midia_id)));
+--
+-- create policy "mentorado atualiza o proprio progresso nas midias"
+-- on progresso_midias for update to authenticated
+-- using (mentorado_id = auth.uid());
+
 
 -- =====================================================================
 -- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha
 -- =====================================================================
-
--- ===== Patch 11: videos pelo YouTube =====
--- Novo tipo de conteúdo 'youtube': o vídeo fica no YouTube (não ocupa espaço no Supabase)
--- e a aula guarda só o link em url_externa. Vídeos já enviados ('video') continuam valendo.
-
-alter table midias drop constraint if exists midias_tipo_check;
-alter table midias add constraint midias_tipo_check
-  check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube'));
-
-alter table midias add column url_externa text;

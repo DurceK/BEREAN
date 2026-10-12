@@ -15,6 +15,7 @@ alter table aulas enable row level security;
 alter table midias enable row level security;
 alter table transcricoes enable row level security;
 alter table progresso enable row level security;
+alter table progresso_midias enable row level security;
 
 -- ===== Funções auxiliares =====
 -- "security definer" faz a checagem enxergar as tabelas sem cair nas próprias regras
@@ -196,4 +197,21 @@ with check (mentorado_id = auth.uid());
 
 create policy "mentorado atualiza o proprio progresso"
 on progresso for update to authenticated
+using (mentorado_id = auth.uid());
+
+-- ===== progresso_midias =====
+create policy "mentorado ve o proprio progresso nas midias"
+on progresso_midias for select to authenticated
+using (mentorado_id = auth.uid());
+
+create policy "mentor ve o progresso nas midias do seu conteudo"
+on progresso_midias for select to authenticated
+using (e_dono_da_categoria(categoria_da_midia(midia_id)));
+
+create policy "mentorado registra o proprio progresso nas midias"
+on progresso_midias for insert to authenticated
+with check (mentorado_id = auth.uid() and pode_ver_categoria(categoria_da_midia(midia_id)));
+
+create policy "mentorado atualiza o proprio progresso nas midias"
+on progresso_midias for update to authenticated
 using (mentorado_id = auth.uid());

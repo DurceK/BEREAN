@@ -94,3 +94,14 @@ create table progresso (
   atualizado_em timestamptz not null default now(),
   unique (mentorado_id, aula_id)
 );
+
+-- 9. Progresso nas mídias: ponto em que o aluno parou em cada áudio/vídeo e se já viu até o fim.
+--    Permite retomar de onde parou e concluir a aula sozinha entre visitas e aparelhos.
+create table progresso_midias (
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  midia_id uuid not null references midias (id) on delete cascade,
+  posicao_segundos numeric not null default 0,
+  visto boolean not null default false,
+  atualizado_em timestamptz not null default now(),
+  primary key (mentorado_id, midia_id)
+);

@@ -53,11 +53,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // O Supabase renova o login sozinho (por exemplo, ao voltar para a aba) e entrega uma
+  // sessão nova a cada renovação. Recarregar o cadastro a cada uma mostrava a tela de
+  // carregando e remontava a navegação, jogando a pessoa de volta à tela inicial.
+  // Por isso o cadastro só é recarregado quando muda QUEM está logado.
+  const usuarioId = session?.user.id ?? null;
+
   useEffect(() => {
     let cancelado = false;
 
     async function sincronizarUsuario() {
-      if (!session) {
+      if (!usuarioId) {
         if (!cancelado) {
           setUsuario(null);
           setIsLoading(false);
@@ -69,7 +75,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       const { data } = await supabase
         .from('usuarios')
         .select('id, nome, papel, precisa_trocar_senha, avatar_url')
-        .eq('id', session.user.id)
+        .eq('id', usuarioId)
         .single();
 
       if (!cancelado) {
@@ -93,7 +99,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => {
       cancelado = true;
     };
-  }, [session]);
+  }, [usuarioId]);
 
   async function entrar(matricula: string, senha: string) {
     const { error } = await supabase.auth.signInWithPassword({

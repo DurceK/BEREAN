@@ -18,6 +18,8 @@ import { PlayerVideo } from '../../../components/aula/PlayerVideo';
 import { LeitorTexto } from '../../../components/aula/LeitorTexto';
 import { PlayerYoutube } from '../../../components/aula/PlayerYoutube';
 import { extrairIdYoutube } from '../../../lib/youtube';
+import { carregarProgressoMidias, salvarProgressoMidia } from '../../../lib/progressoMidias';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Midia = {
   id: string;
@@ -67,13 +69,27 @@ export default function AulaMentorado() {
   const [ativo, setAtivo] = useState<string | null>(null);
   const [anterior, setAnterior] = useState<AulaVizinha>(null);
   const [proxima, setProxima] = useState<AulaVizinha>(null);
-  // Mídias que o aluno já assistiu/ouviu até o fim nesta visita à aula
+  // Mídias que o aluno já assistiu/ouviu até o fim (guardado no banco, vale entre visitas)
   const [vistos, setVistos] = useState<string[]>([]);
+  // Ponto em que o aluno parou em cada áudio/vídeo, em segundos
+  const [posicoes, setPosicoes] = useState<Record<string, number>>({});
   const concluindo = useRef(false);
 
-  const marcarVisto = useCallback((id: string) => {
-    setVistos((atual) => (atual.includes(id) ? atual : [...atual, id]));
-  }, []);
+  const marcarVisto = useCallback(
+    (id: string) => {
+      setVistos((atual) => (atual.includes(id) ? atual : [...atual, id]));
+      // viu até o fim: na próxima vez começa do início
+      if (usuario) salvarProgressoMidia(usuario.id, id, { visto: true, posicao: 0 });
+    },
+    [usuario]
+  );
+
+  const salvarPosicao = useCallback(
+    (id: string, segundos: number) => {
+      if (usuario) salvarProgressoMidia(usuario.id, id, { posicao: segundos });
+    },
+    [usuario]
+  );
 
   useEffect(() => {
     if (!usuario) return;
@@ -115,6 +131,13 @@ export default function AulaMentorado() {
       }
 
       const lista = resMidias.data ?? [];
+      const progressoMidias = await carregarProgressoMidias(
+        usuario!.id,
+        lista.map((m) => m.id)
+      );
+      // Guarda a última aula aberta, para o botão "Continuar aula" da tela inicial
+      AsyncStorage.setItem(`berean:ultimaAula:${usuario!.id}`, aulaId).catch(() => {});
+
       const caminhos = lista.map((m) => m.caminho_storage).filter((c): c is string => !!c);
       let mapa: Record<string, string> = {};
       try {
@@ -146,6 +169,16 @@ export default function AulaMentorado() {
         setTitulo(resAula.data.titulo);
         setModulo(dadosModulo?.nome ?? '');
         setMidias(lista);
+        setVistos(lista.filter((m) => progressoMidias[m.id]?.visto).map((m) => m.id));
+        setPosicoes(
+          Object.fromEntries(
+            lista.map((m) => {
+              const p = progressoMidias[m.id];
+              // o que já foi visto até o fim recomeça do início
+              return [m.id, p && !p.visto ? p.posicao : 0];
+            })
+          )
+        );
         setUrls(mapa);
         setStatus(statusAtual);
         setCarregando(false);
@@ -221,6 +254,8 @@ export default function AulaMentorado() {
                 ativo={ativo}
                 onAtivar={setAtivo}
                 onTerminar={marcarVisto}
+                posicaoInicial={posicoes[midia.id] ?? 0}
+                onProgresso={salvarPosicao}
               />
             )}
             {midia.tipo === 'youtube' && !videoYoutube && (
@@ -233,6 +268,8 @@ export default function AulaMentorado() {
                 ativo={ativo}
                 onAtivar={setAtivo}
                 onTerminar={marcarVisto}
+                posicaoInicial={posicoes[midia.id] ?? 0}
+                onProgresso={salvarPosicao}
               />
             )}
             {midia.tipo === 'video' && url && (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { fontes, useEstilos, type Cores } from '../../lib/tema';
@@ -11,19 +11,76 @@ type Props = {
   ativo: string | null;
   onAtivar: (id: string) => void;
   onTerminar?: (id: string) => void;
+  posicaoInicial?: number; // segundos; retoma de onde o aluno parou
+  onProgresso?: (id: string, segundos: number) => void;
 };
+
+// De quanto em quanto tempo (tocando) o ponto atual é salvo
+const INTERVALO_SALVAR = 10;
 
 function formatarTempo(segundos: number) {
   const total = Math.max(0, Math.floor(segundos || 0));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
-export function PlayerAudio({ id, url, ativo, onAtivar, onTerminar }: Props) {
+export function PlayerAudio({
+  id,
+  url,
+  ativo,
+  onAtivar,
+  onTerminar,
+  posicaoInicial = 0,
+  onProgresso,
+}: Props) {
   const estilos = useEstilos(criarEstilos);
   const player = useAudioPlayer(url, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
   const [velocidade, setVelocidade] = useState(1);
   const [larguraBarra, setLarguraBarra] = useState(0);
+
+  const retomou = useRef(false);
+  const jaTocou = useRef(false);
+  const ultimoSalvo = useRef(posicaoInicial);
+  const tempoAtual = useRef(posicaoInicial);
+  const avisar = useRef(onProgresso);
+
+  useEffect(() => {
+    avisar.current = onProgresso;
+  }, [onProgresso]);
+
+  // Ao carregar, pula para onde o aluno tinha parado (se não estava quase no fim)
+  useEffect(() => {
+    if (!status.isLoaded || retomou.current) return;
+    retomou.current = true;
+    if (posicaoInicial > 1 && posicaoInicial < status.duration - 2) player.seekTo(posicaoInicial);
+  }, [status.isLoaded, status.duration, posicaoInicial, player]);
+
+  // Salva o ponto a cada INTERVALO_SALVAR segundos tocando, e ao pausar.
+  // Só depois do primeiro play: antes disso o áudio ainda pode estar no segundo 0,
+  // a caminho do ponto salvo, e gravaria 0 por cima dele.
+  useEffect(() => {
+    tempoAtual.current = status.currentTime;
+    if (status.playing) jaTocou.current = true;
+    if (!jaTocou.current) return;
+    const andou = Math.abs(status.currentTime - ultimoSalvo.current) >= INTERVALO_SALVAR;
+    if (
+      (status.playing && andou) ||
+      (!status.playing && status.currentTime !== ultimoSalvo.current)
+    ) {
+      ultimoSalvo.current = status.currentTime;
+      avisar.current?.(id, status.currentTime);
+    }
+  }, [status.currentTime, status.playing, id]);
+
+  // Salva também ao sair da aula
+  useEffect(
+    () => () => {
+      if (jaTocou.current && tempoAtual.current !== ultimoSalvo.current) {
+        avisar.current?.(id, tempoAtual.current);
+      }
+    },
+    [id]
+  );
 
   // Só uma mídia toca por vez: se outra virou a ativa, este pausa.
   useEffect(() => {
