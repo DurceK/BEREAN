@@ -1,5 +1,146 @@
--- Regras de segurança (Row Level Security) do BEREAN
--- Rode este arquivo DEPOIS do schema.sql, no SQL Editor do painel do Supabase.
+-- =====================================================================
+-- MIGRATION INICIAL: o banco completo como estava em 12/10/2026 (patches 01 a 15)
+-- =====================================================================
+-- Junta, nesta ordem, o que antes ficava em database/schema.sql, database/rls.sql e
+-- database/storage_policies.sql. Num projeto novo, `supabase db push` roda tudo de uma vez.
+-- No banco da Camila (BEREAN) ela NÃO deve rodar: foi marcada como aplicada com
+-- `supabase migration repair --status applied 20261012000000`.
+
+
+-- ######################## 1. TABELAS ########################
+
+-- Esquema
+-- Usuários se inscrevem em categorias, que têm módulos, que têm aulas, que têm mídias.
+
+-- 1. Usuários: uma linha por pessoa que faz login (mentor ou mentorado)
+create table usuarios (
+  id uuid primary key references auth.users (id) on delete cascade,
+  matricula text not null unique, -- cópia da matrícula de login (o login usa matricula@dominioLogin do cliente)
+  nome text not null,
+  papel text not null check (papel in ('mentor', 'mentorado')),
+  avatar_url text, -- caminho da foto no bucket "avatares" ({usuario_id}/arquivo)
+  precisa_trocar_senha boolean not null default false,
+  criado_em timestamptz not null default now()
+);
+
+-- 2. Categorias: agrupamento de mais alto nível (ex: Inglês, Vendas, Provérbios)
+create table categorias (
+  id uuid primary key default gen_random_uuid(),
+  mentor_id uuid not null references usuarios (id) on delete cascade,
+  nome text not null,
+  criado_em timestamptz not null default now()
+);
+
+-- 3. Inscrições: liga um mentorado a uma categoria.
+--    Um mentorado só vê o conteúdo das categorias em que está inscrito.
+create table inscricoes (
+  id uuid primary key default gen_random_uuid(),
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  categoria_id uuid not null references categorias (id) on delete cascade,
+  criado_em timestamptz not null default now(),
+  unique (mentorado_id, categoria_id)
+);
+
+-- 4. Módulos: agrupam aulas dentro de uma categoria (ex: "Past simple")
+create table modulos (
+  id uuid primary key default gen_random_uuid(),
+  categoria_id uuid not null references categorias (id) on delete cascade,
+  nome text not null,
+  ordem integer not null default 0,
+  criado_em timestamptz not null default now()
+);
+
+-- 5. Aulas: a unidade de conteúdo. O conteúdo em si (áudio/foto/vídeo) fica em midias.
+create table aulas (
+  id uuid primary key default gen_random_uuid(),
+  modulo_id uuid not null references modulos (id) on delete cascade,
+  titulo text not null,
+  ordem integer not null default 0,
+  data_liberacao timestamptz, -- funcionalidade futura: liberar a aula só a partir dessa data
+  criado_em timestamptz not null default now()
+);
+
+-- 6. Mídias: lista ordenada de itens de uma aula (áudio, foto ou vídeo).
+--    tipo indica a origem/natureza do item:
+--      'audio_gravado' -> mentor gravou pelo próprio app
+--      'audio_upload'  -> mentor enviou um arquivo de áudio do dispositivo
+--      'audio_texto'   -> mentor escreveu um texto e o app lê em voz alta (voz nativa do celular, sem custo)
+--      'imagem'        -> foto enviada
+--      'video'         -> vídeo enviado para o Storage (não é mais oferecido no app; os antigos continuam)
+--      'youtube'       -> vídeo no YouTube; guarda só o link em url_externa
+--      'exercicio'     -> exercício de múltipla escolha (perguntas na tabela questoes)
+create table midias (
+  id uuid primary key default gen_random_uuid(),
+  aula_id uuid not null references aulas (id) on delete cascade,
+  tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube', 'exercicio')),
+  url_externa text, -- link do vídeo quando tipo = 'youtube'
+  titulo text, -- opcional, mostrado acima do conteúdo
+  ordem integer not null default 0,
+  caminho_storage text, -- caminho do arquivo no bucket 'midias'; nulo quando tipo = 'audio_texto'
+  texto_origem text, -- só usado quando tipo = 'audio_texto'
+  idioma text check (idioma in ('pt-BR', 'en-US')), -- voz do audio_texto; nulo = português
+  duracao_segundos numeric,
+  criado_em timestamptz not null default now()
+);
+
+-- 7. Progresso: liga um mentorado a uma aula e guarda o status
+create table progresso (
+  id uuid primary key default gen_random_uuid(),
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  aula_id uuid not null references aulas (id) on delete cascade,
+  status text not null default 'nao_iniciado' check (status in ('nao_iniciado', 'em_andamento', 'concluido')),
+  atualizado_em timestamptz not null default now(),
+  unique (mentorado_id, aula_id)
+);
+
+-- 8. Progresso nas mídias: ponto em que o aluno parou em cada áudio/vídeo e se já viu até o fim.
+--    Permite retomar de onde parou e concluir a aula sozinha entre visitas e aparelhos.
+create table progresso_midias (
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  midia_id uuid not null references midias (id) on delete cascade,
+  posicao_segundos numeric not null default 0,
+  visto boolean not null default false,
+  atualizado_em timestamptz not null default now(),
+  primary key (mentorado_id, midia_id)
+);
+
+-- 9. Exercícios de múltipla escolha (midias.tipo = 'exercicio')
+create table questoes (
+  id uuid primary key default gen_random_uuid(),
+  midia_id uuid not null references midias (id) on delete cascade,
+  ordem integer not null default 0,
+  enunciado text not null,
+  explicacao text, -- opcional, mostrada depois que o aluno responde
+  criado_em timestamptz not null default now()
+);
+
+create table alternativas (
+  id uuid primary key default gen_random_uuid(),
+  questao_id uuid not null references questoes (id) on delete cascade,
+  ordem integer not null default 0,
+  texto text not null
+);
+
+-- Gabarito separado: só o mentor dono lê (o aluno responde pela função responder_questao)
+create table gabaritos (
+  questao_id uuid primary key references questoes (id) on delete cascade,
+  alternativa_id uuid not null references alternativas (id) on delete cascade
+);
+
+-- Respostas dos alunos: só a 1ª tentativa de cada pergunta
+create table respostas (
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  questao_id uuid not null references questoes (id) on delete cascade,
+  alternativa_id uuid not null references alternativas (id) on delete cascade,
+  correta boolean not null,
+  respondido_em timestamptz not null default now(),
+  primary key (mentorado_id, questao_id)
+);
+
+
+-- ######################## 2. REGRAS DE SEGURANÇA (RLS) ########################
+
+-- Regras de segurança (Row Level Security)
 --
 -- Resumo das regras:
 --   - Cada usuário edita só o próprio cadastro.
@@ -275,3 +416,81 @@ $$;
 
 revoke execute on function responder_questao(uuid, uuid) from public, anon;
 grant execute on function responder_questao(uuid, uuid) to authenticated;
+
+
+-- ######################## 3. ARQUIVOS (STORAGE) ########################
+
+-- Bucket "midias" (arquivos das aulas) e suas políticas de acesso
+-- (usa as funções pode_ver_categoria e categoria_da_aula, criadas acima).
+--
+-- Convenção de pastas dentro do bucket: {mentor_id}/{aula_id}/{arquivo}
+-- O 1º pedaço restringe upload/edição/remoção ao mentor dono; o 2º restringe a leitura
+-- a quem pode ver a categoria da aula.
+
+-- Bucket privado; limites para economizar o plano gratuito: até 30 MB, só imagem e áudio
+-- (vídeo vai pelo YouTube)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('midias', 'midias', false, 31457280, array['image/jpeg', 'image/png', 'image/webp', 'audio/*'])
+on conflict (id) do nothing;
+
+create policy "ler arquivos das aulas que pode ver"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'midias'
+  and public.pode_ver_categoria(public.categoria_da_aula(((storage.foldername(name))[2])::uuid))
+);
+
+create policy "mentor envia arquivos em sua propria pasta"
+on storage.objects for insert to authenticated
+with check (
+  bucket_id = 'midias'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "mentor atualiza arquivos em sua propria pasta"
+on storage.objects for update to authenticated
+using (
+  bucket_id = 'midias'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "mentor remove arquivos em sua propria pasta"
+on storage.objects for delete to authenticated
+using (
+  bucket_id = 'midias'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- ===== Bucket "avatares" (fotos de perfil) =====
+-- Criado por SQL; pasta {usuario_id}/arquivo.
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatares', 'avatares', false, 1048576,array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do nothing;
+
+-- Vê: a própria pessoa, qualquer mentor, e todos veem a foto dos mentores
+create policy "ver avatares"
+on storage.objects for select to authenticated
+using (
+  bucket_id = 'avatares'
+  and (
+    (storage.foldername(name))[1] = auth.uid()::text
+    or public.e_mentor()
+    or exists (
+      select 1 from public.usuarios u
+      where u.id::text = (storage.foldername(name))[1] and u.papel = 'mentor'
+    )
+  )
+);
+
+create policy "enviar o proprio avatar"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'avatares' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "trocar o proprio avatar"
+on storage.objects for update to authenticated
+using (bucket_id = 'avatares' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "apagar o proprio avatar"
+on storage.objects for delete to authenticated
+using (bucket_id = 'avatares' and (storage.foldername(name))[1] = auth.uid()::text);

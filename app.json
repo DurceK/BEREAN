@@ -1,44 +1,21 @@
 {
   "expo": {
-    "name": "BEREAN",
-    "slug": "BEREAN",
     "version": "1.0.0",
-    "scheme": "berean",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Usado para escolher fotos e vídeos para as sessões.",
-        "NSCameraUsageDescription": "Usado para tirar fotos e vídeos para as sessões.",
-        "NSMicrophoneUsageDescription": "Usado para gravar áudio das sessões."
+        "NSPhotoLibraryUsageDescription": "Usado para escolher fotos para as aulas e para o perfil.",
+        "NSCameraUsageDescription": "Usado para tirar fotos para as aulas.",
+        "NSMicrophoneUsageDescription": "Usado para gravar o áudio das aulas."
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#0B4C35",
-        "foregroundImage": "./assets/android-icon-foreground.png"
-      },
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-audio",
-      "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#0B4C35",
-          "image": "./assets/icon.png",
-          "imageWidth": 220
-        }
-      ],
-      "expo-video"
-    ],
+    "web": {},
+    "plugins": ["expo-router", "expo-audio", "expo-font", "expo-video"],
     "experiments": {
       "typedRoutes": true
     }

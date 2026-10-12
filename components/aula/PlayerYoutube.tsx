@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { cliente } from '../../lib/cliente';
 
 type Props = {
   id: string;
@@ -15,7 +16,7 @@ type Props = {
 };
 
 // O YouTube exige que o player tenha uma origem https; usamos o domínio fictício do app
-const ORIGEM = 'https://berean.app';
+const ORIGEM = `https://${cliente.dominioLogin}`;
 const TERMINOU = 0;
 const TOCANDO = 1;
 const PAUSADO = 2;

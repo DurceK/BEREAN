@@ -1,16 +1,20 @@
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { cliente, logoDoCliente } from '../lib/cliente';
 import { fontes, useEstilos, type Cores } from '../lib/tema';
-
-const logo = require('../assets/logo.png');
 
 export function Marca() {
   const estilos = useEstilos(criarEstilos);
 
   return (
     <View style={estilos.marca}>
-      <Image source={logo} style={estilos.logo} resizeMode="contain" accessibilityLabel="Logo BEREAN" />
-      <Text style={estilos.estrelas}>★ ★ ★</Text>
-      <Text style={estilos.nome}>BEREAN</Text>
+      <Image
+        source={logoDoCliente}
+        style={estilos.logo}
+        resizeMode="contain"
+        accessibilityLabel={`Logo ${cliente.nome}`}
+      />
+      {!!cliente.enfeite && <Text style={estilos.estrelas}>{cliente.enfeite}</Text>}
+      <Text style={estilos.nome}>{cliente.nome}</Text>
       <View style={estilos.filete} />
     </View>
   );

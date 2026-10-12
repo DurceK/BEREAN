@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type PropsWithChildren } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { cliente } from './cliente';
 
 export type Papel = 'mentor' | 'mentorado';
 
@@ -25,7 +26,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function matriculaParaEmail(matricula: string) {
-  return `${matricula.trim().toLowerCase()}@berean.app`;
+  return `${matricula.trim().toLowerCase()}@${cliente.dominioLogin}`;
 }
 
 export function useAuth() {

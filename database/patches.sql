@@ -1,13 +1,13 @@
 -- =====================================================================
--- PATCHES DO BANCO DO BEREAN
+-- PATCHES DO BANCO DO BEREAN (HISTÓRICO, ARQUIVO ENCERRADO)
 -- =====================================================================
--- Como usar: cada patch novo entra no FINAL deste arquivo, sem comentário.
--- Copie só o patch novo e cole no SQL Editor do Supabase.
--- Os patches já aplicados ficam comentados abaixo, só como histórico:
--- colar o arquivo inteiro não executa nada deles.
+-- Até 12/10/2026 as mudanças no banco eram patches colados à mão no SQL Editor.
+-- Os patches 01 a 15 abaixo já foram todos aplicados e ficam só como histórico.
 --
--- Para criar o banco do zero, NÃO use este arquivo: rode schema.sql,
--- rls.sql e storage_policies.sql (já incluem todos os patches).
+-- AGORA: cada mudança nova vira um arquivo em supabase/migrations/ e é aplicada com
+--   npx.cmd supabase db push
+-- O banco completo (patches 01 a 15 incluídos) está em
+-- supabase/migrations/20261012000000_inicial.sql.
 
 
 -- ===== Patch 01: origem audio opcional (JÁ APLICADO) =====
@@ -602,9 +602,4 @@
 -- drop table if exists transcricoes;
 --
 -- alter table progresso drop column if exists posicao_segundos;
-
-
--- =====================================================================
--- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha
--- =====================================================================
 

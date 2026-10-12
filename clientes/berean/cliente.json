@@ -1,0 +1,39 @@
+{
+  "nome": "BEREAN",
+  "slug": "BEREAN",
+  "scheme": "berean",
+  "identificador": "com.durcek.berean",
+  "dominioLogin": "berean.app",
+  "enfeite": "★ ★ ★",
+  "corDeFundo": "#0B4C35",
+  "cores": {
+    "claro": {
+      "fundo": "#F5F2EB",
+      "superficie": "#FFFDF8",
+      "borda": "#DED6C4",
+      "texto": "#07241C",
+      "textoSuave": "#56685F",
+      "primaria": "#0D3B2E",
+      "sobrePrimaria": "#F5F2EB",
+      "destaque": "#8A6A2C",
+      "erro": "#A3392A",
+      "sobreposicao": "rgba(7, 36, 28, 0.55)",
+      "faixa": "#0D3B2E",
+      "sobreFaixa": "#F5F2EB"
+    },
+    "escuro": {
+      "fundo": "#07241C",
+      "superficie": "#0D3B2E",
+      "borda": "#24594A",
+      "texto": "#F5F2EB",
+      "textoSuave": "#B5C2BA",
+      "primaria": "#C8A86B",
+      "sobrePrimaria": "#07241C",
+      "destaque": "#C8A86B",
+      "erro": "#E8846F",
+      "sobreposicao": "rgba(0, 0, 0, 0.6)",
+      "faixa": "#0D3B2E",
+      "sobreFaixa": "#F5F2EB"
+    }
+  }
+}

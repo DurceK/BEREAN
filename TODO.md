@@ -28,12 +28,14 @@
   - Direção: um acrônimo baseado na função do produto
   - Descartados: "Parakletos" (já pedido no INPI na classe 41, educação) e "Mentora" (parecido com Mentorh)
   - [ ] Checar o nome escolhido no INPI (classes 9, 41 e 42) e ver se o domínio está livre
-  - [ ] Antes do 2º cliente: trocar o que ainda leva "berean" por dentro do código por nomes neutros: e-mail fictício de login (`matricula@berean.app`, exige migrar as contas), chaves guardadas no celular (`berean:...`) e origem do player do YouTube
+  - [x] O "berean" que sobrou por dentro do código não atrapalha: o domínio de login virou configuração por cliente (`dominioLogin`), e cada app tem o próprio armazenamento no celular
 
-- [ ] **Versão por cliente (ícone, nome e cores)**
-      Hoje ícone e nome ficam fixos no `app.json`, o logo da tela de login em `assets/logo.png` (escudo recortado do ícone) e as cores no `lib/tema.ts`. Para trocar por cliente sem editar à mão a cada vez: trocar o `app.json` por um `app.config.ts` que lê uma pasta por cliente (ex: `clientes/berean-ingles/` com ícone, nome e paleta) e escolhe qual usar na hora de gerar o app.
+- [x] **Versão por cliente (ícone, nome e cores)**: pasta `clientes/<cliente>/` com `cliente.json`, imagens e `.env`; trocar com `npm run cliente -- <pasta>` (passo a passo em `clientes/LEIAME.md`)
+  - [ ] Fontes por cliente (hoje Cinzel e Montserrat valem para todos)
 
-- [ ] **Migrar os scripts SQL para o Supabase CLI** (migrations versionadas) antes de vender para outras empresas
+- [x] **Banco em migrations do Supabase CLI**: `supabase/migrations/` (a inicial junta os patches 01 a 15); mudança nova = arquivo novo + `npx.cmd supabase db push`
+  - [x] Marcar a migration inicial como aplicada no banco da Camila (`migration repair`)
+  - [ ] Testar a migration inicial num projeto Supabase vazio de teste
 
 - [x] **Atualizar pacotes do Expo** (SDK 57: expo 57.0.11 → 57.0.27 e demais pacotes)
 

@@ -14,6 +14,9 @@ const CORS = {
 };
 
 const SENHA_MINIMA = 6;
+// Domínio do e-mail fictício de login (matricula@dominio). Cada cliente pode definir o seu
+// no segredo DOMINIO_LOGIN do projeto; tem que ser igual ao dominioLogin do cliente.json.
+const DOMINIO_LOGIN = Deno.env.get('DOMINIO_LOGIN') ?? 'berean.app';
 
 function resposta(corpo: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(corpo), {
@@ -46,10 +49,15 @@ Deno.serve(async (req) => {
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
   const { data: quem, error: erroLogin } = await admin.auth.getUser(token);
-  if (erroLogin || !quem.user) return resposta({ erro: 'Sua sessão expirou. Entre novamente.' }, 401);
+  if (erroLogin || !quem.user)
+    return resposta({ erro: 'Sua sessão expirou. Entre novamente.' }, 401);
   const mentorId = quem.user.id;
 
-  const { data: chamador } = await admin.from('usuarios').select('papel').eq('id', mentorId).single();
+  const { data: chamador } = await admin
+    .from('usuarios')
+    .select('papel')
+    .eq('id', mentorId)
+    .single();
   if (chamador?.papel !== 'mentor') return resposta({ erro: 'Só mentores podem fazer isso.' }, 403);
 
   let corpo: Record<string, unknown>;
@@ -66,19 +74,26 @@ Deno.serve(async (req) => {
 
 async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) {
   const nome = String(corpo.nome ?? '').trim();
-  const matricula = String(corpo.matricula ?? '').trim().toLowerCase();
+  const matricula = String(corpo.matricula ?? '')
+    .trim()
+    .toLowerCase();
   const senha = String(corpo.senha ?? '');
   const categorias = Array.isArray(corpo.categorias) ? corpo.categorias.map(String) : [];
 
   if (!nome) return resposta({ erro: 'Informe o nome do aluno.' }, 400);
   if (!/^[a-z0-9._-]{3,30}$/.test(matricula)) {
     return resposta(
-      { erro: 'A matrícula deve ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou sublinhado.' },
+      {
+        erro: 'A matrícula deve ter de 3 a 30 caracteres, só letras, números, ponto, hífen ou sublinhado.',
+      },
       400
     );
   }
   if (senha.length < SENHA_MINIMA) {
-    return resposta({ erro: `A senha provisória precisa ter pelo menos ${SENHA_MINIMA} caracteres.` }, 400);
+    return resposta(
+      { erro: `A senha provisória precisa ter pelo menos ${SENHA_MINIMA} caracteres.` },
+      400
+    );
   }
   if (categorias.length === 0) return resposta({ erro: 'Escolha pelo menos um curso.' }, 400);
 
@@ -91,18 +106,24 @@ async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) 
     return resposta({ erro: 'Um dos cursos escolhidos não é seu.' }, 403);
   }
 
-  const { data: existente } = await admin.from('usuarios').select('id').eq('matricula', matricula).maybeSingle();
+  const { data: existente } = await admin
+    .from('usuarios')
+    .select('id')
+    .eq('matricula', matricula)
+    .maybeSingle();
   if (existente) return resposta({ erro: 'Já existe alguém com essa matrícula.' }, 409);
 
   const { data: criado, error: erroCriar } = await admin.auth.admin.createUser({
-    email: `${matricula}@berean.app`,
+    email: `${matricula}@${DOMINIO_LOGIN}`,
     password: senha,
     email_confirm: true,
   });
   if (erroCriar || !criado.user) {
     const jaExiste = /already|registered|exists/i.test(erroCriar?.message ?? '');
     return resposta(
-      { erro: jaExiste ? 'Já existe alguém com essa matrícula.' : 'Não foi possível criar o login.' },
+      {
+        erro: jaExiste ? 'Já existe alguém com essa matrícula.' : 'Não foi possível criar o login.',
+      },
       jaExiste ? 409 : 500
     );
   }
@@ -138,7 +159,10 @@ async function redefinirSenha(mentorId: string, corpo: Record<string, unknown>) 
 
   if (!alunoId) return resposta({ erro: 'Aluno não informado.' }, 400);
   if (senha.length < SENHA_MINIMA) {
-    return resposta({ erro: `A senha provisória precisa ter pelo menos ${SENHA_MINIMA} caracteres.` }, 400);
+    return resposta(
+      { erro: `A senha provisória precisa ter pelo menos ${SENHA_MINIMA} caracteres.` },
+      400
+    );
   }
 
   const { data: vinculo } = await admin
