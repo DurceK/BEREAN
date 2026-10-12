@@ -13,7 +13,6 @@ alter table inscricoes enable row level security;
 alter table modulos enable row level security;
 alter table aulas enable row level security;
 alter table midias enable row level security;
-alter table transcricoes enable row level security;
 alter table progresso enable row level security;
 alter table progresso_midias enable row level security;
 
@@ -164,23 +163,6 @@ using (e_dono_da_categoria(categoria_da_aula(aula_id)));
 create policy "mentor apaga midias"
 on midias for delete to authenticated
 using (e_dono_da_categoria(categoria_da_aula(aula_id)));
-
--- ===== transcricoes =====
-create policy "ver transcricoes"
-on transcricoes for select to authenticated
-using (pode_ver_categoria(categoria_da_midia(midia_id)));
-
-create policy "mentor cria transcricoes"
-on transcricoes for insert to authenticated
-with check (e_mentor() and e_dono_da_categoria(categoria_da_midia(midia_id)));
-
-create policy "mentor edita transcricoes"
-on transcricoes for update to authenticated
-using (e_dono_da_categoria(categoria_da_midia(midia_id)));
-
-create policy "mentor apaga transcricoes"
-on transcricoes for delete to authenticated
-using (e_dono_da_categoria(categoria_da_midia(midia_id)));
 
 -- ===== progresso =====
 create policy "mentorado ve o proprio progresso"

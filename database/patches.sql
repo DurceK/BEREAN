@@ -593,6 +593,16 @@
 -- set file_size_limit = 1048576
 -- where id = 'avatares';
 
+-- ===== Patch 15: remove o que ficou sem uso (JÁ APLICADO) =====
+-- A transcrição sincronizada foi descartada, e o ponto em que o aluno parou agora fica
+-- por mídia em progresso_midias. Apagar libera espaço e deixa o banco mais simples.
+-- Os dois estão vazios/sem uso no app: nada que o aluno ou o mentor vê muda.
+-- (As políticas de acesso da tabela somem junto com ela.)
+--
+-- drop table if exists transcricoes;
+--
+-- alter table progresso drop column if exists posicao_segundos;
+
 
 -- =====================================================================
 -- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha

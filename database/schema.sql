@@ -73,30 +73,17 @@ create table midias (
   criado_em timestamptz not null default now()
 );
 
--- 7. Transcrições: cada linha é um trecho do áudio com o segundo em que começa e termina,
---    usado para destacar a frase certa enquanto o áudio toca (efeito "karaokê").
---    Pertence a uma mídia (um áudio), já que uma aula pode ter mais de um.
-create table transcricoes (
-  id uuid primary key default gen_random_uuid(),
-  midia_id uuid not null references midias (id) on delete cascade,
-  ordem integer not null,
-  texto text not null,
-  inicio_segundos numeric not null,
-  fim_segundos numeric not null
-);
-
--- 8. Progresso: liga um mentorado a uma aula e guarda o status/posição
+-- 7. Progresso: liga um mentorado a uma aula e guarda o status
 create table progresso (
   id uuid primary key default gen_random_uuid(),
   mentorado_id uuid not null references usuarios (id) on delete cascade,
   aula_id uuid not null references aulas (id) on delete cascade,
   status text not null default 'nao_iniciado' check (status in ('nao_iniciado', 'em_andamento', 'concluido')),
-  posicao_segundos numeric not null default 0,
   atualizado_em timestamptz not null default now(),
   unique (mentorado_id, aula_id)
 );
 
--- 9. Progresso nas mídias: ponto em que o aluno parou em cada áudio/vídeo e se já viu até o fim.
+-- 8. Progresso nas mídias: ponto em que o aluno parou em cada áudio/vídeo e se já viu até o fim.
 --    Permite retomar de onde parou e concluir a aula sozinha entre visitas e aparelhos.
 create table progresso_midias (
   mentorado_id uuid not null references usuarios (id) on delete cascade,
@@ -107,7 +94,7 @@ create table progresso_midias (
   primary key (mentorado_id, midia_id)
 );
 
--- 10. Exercícios de múltipla escolha (midias.tipo = 'exercicio')
+-- 9. Exercícios de múltipla escolha (midias.tipo = 'exercicio')
 create table questoes (
   id uuid primary key default gen_random_uuid(),
   midia_id uuid not null references midias (id) on delete cascade,
