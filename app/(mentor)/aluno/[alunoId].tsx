@@ -190,7 +190,7 @@ export default function FichaAluno() {
       })}
 
       {categorias.length === 0 && (
-        <Text style={estilos.semAulas}>Este aluno não está inscrito em nenhuma categoria sua.</Text>
+        <Text style={estilos.semAulas}>Este aluno não está inscrito em nenhum curso seu.</Text>
       )}
     </ScrollView>
   );

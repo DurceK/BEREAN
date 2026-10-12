@@ -4,7 +4,8 @@
 
 - [ ] **Painel de administração online para o mentor (pelo PC)**
   A Camila acessa pelo navegador do computador para montar e manter o curso. Deve permitir:
-  - [x] Editar e apagar categorias, módulos e aulas (apagar também remove os arquivos do Storage)
+  - [x] Criar, renomear e apagar categorias, módulos e aulas direto na tela inicial do mentor, em árvore que abre e fecha (apagar também remove os arquivos do Storage)
+  - [x] Pré-visualização da aula como o aluno vê, sem registrar progresso
   - [x] Adicionar, reordenar e remover mídias de uma aula
   - [x] Cadastrar mentorados e inscrevê-los em categorias (Edge Function `admin-usuarios`)
   - [x] Redefinir senha de mentorado

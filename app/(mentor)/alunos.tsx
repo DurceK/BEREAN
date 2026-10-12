@@ -153,7 +153,7 @@ export default function Alunos() {
         <View style={estilos.topoTexto}>
           <Text style={estilos.titulo}>Alunos</Text>
           <Text style={estilos.subtitulo}>
-            Cadastre alunos, escolha as categorias de cada um e redefina senhas esquecidas.
+            Cadastre alunos, escolha os cursos de cada um e redefina senhas esquecidas.
           </Text>
         </View>
         <Pressable
@@ -166,7 +166,7 @@ export default function Alunos() {
       </View>
 
       {categorias.length === 0 && !carregando && (
-        <Text style={estilos.aviso}>Crie uma categoria antes de cadastrar alunos.</Text>
+        <Text style={estilos.aviso}>Crie um curso antes de cadastrar alunos.</Text>
       )}
       {erroLista && <Text style={estilos.erro}>{erroLista}</Text>}
       {carregando && <ActivityIndicator color={cores.primaria} />}
@@ -196,7 +196,7 @@ export default function Alunos() {
           <View style={estilos.chips}>
             {categorias.map((categoria) => {
               const inscrito = aluno.categorias.includes(categoria.id);
-              // tirar a última categoria faria o aluno sumir desta lista
+              // tirar o último curso faria o aluno sumir desta lista
               const ultima = inscrito && aluno.categorias.length === 1;
               return (
                 <Pressable
@@ -260,7 +260,7 @@ export default function Alunos() {
                   </View>
                   <Text style={estilos.dica}>O aluno troca por uma senha dele no primeiro acesso.</Text>
 
-                  <Text style={estilos.label}>Categorias</Text>
+                  <Text style={estilos.label}>Cursos</Text>
                   <View style={estilos.chips}>
                     {categorias.map((categoria) => {
                       const marcada = escolhidas.includes(categoria.id);

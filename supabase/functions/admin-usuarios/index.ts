@@ -80,7 +80,7 @@ async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) 
   if (senha.length < SENHA_MINIMA) {
     return resposta({ erro: `A senha provisória precisa ter pelo menos ${SENHA_MINIMA} caracteres.` }, 400);
   }
-  if (categorias.length === 0) return resposta({ erro: 'Escolha pelo menos uma categoria.' }, 400);
+  if (categorias.length === 0) return resposta({ erro: 'Escolha pelo menos um curso.' }, 400);
 
   const { data: suas } = await admin
     .from('categorias')
@@ -88,7 +88,7 @@ async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) 
     .eq('mentor_id', mentorId)
     .in('id', categorias);
   if ((suas ?? []).length !== categorias.length) {
-    return resposta({ erro: 'Uma das categorias escolhidas não é sua.' }, 403);
+    return resposta({ erro: 'Um dos cursos escolhidos não é seu.' }, 403);
   }
 
   const { data: existente } = await admin.from('usuarios').select('id').eq('matricula', matricula).maybeSingle();
@@ -126,7 +126,7 @@ async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) 
   if (erroInscricao) {
     // apagar o login apaga o cadastro junto (on delete cascade)
     await admin.auth.admin.deleteUser(alunoId);
-    return resposta({ erro: 'Não foi possível inscrever o aluno nas categorias.' }, 500);
+    return resposta({ erro: 'Não foi possível inscrever o aluno nos cursos.' }, 500);
   }
 
   return resposta({ id: alunoId });
@@ -148,7 +148,7 @@ async function redefinirSenha(mentorId: string, corpo: Record<string, unknown>) 
     .eq('categorias.mentor_id', mentorId)
     .limit(1);
   if (!vinculo || vinculo.length === 0) {
-    return resposta({ erro: 'Este aluno não está inscrito em nenhuma categoria sua.' }, 403);
+    return resposta({ erro: 'Este aluno não está inscrito em nenhum curso seu.' }, 403);
   }
 
   const { error: erroSenha } = await admin.auth.admin.updateUserById(alunoId, { password: senha });

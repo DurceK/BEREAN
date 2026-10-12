@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -323,6 +323,12 @@ export default function ConteudoAula() {
       <Text style={styles.titulo}>{tituloAula}</Text>
       <Text style={styles.subtitulo}>Conteúdo da aula</Text>
 
+      <Link href={`/(mentor)/previa/${aulaId}`} asChild>
+        <Pressable style={styles.botaoPrevia}>
+          <Text style={styles.botaoPreviaTexto}>Ver como o aluno vê ›</Text>
+        </Pressable>
+      </Link>
+
       {midias.length === 0 && (
         <Text style={styles.vazio}>
           Esta aula ainda não tem conteúdo. Adicione o primeiro item abaixo.
@@ -602,7 +608,17 @@ const criarEstilos = (c: Cores) =>
     fundo: { flex: 1, backgroundColor: c.fundo },
     container: { padding: 24, width: '100%', maxWidth: 720, alignSelf: 'center' },
     titulo: { fontFamily: fontes.titulo, fontSize: 22, color: c.texto },
-    subtitulo: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4, marginBottom: 20 },
+    subtitulo: { fontFamily: fontes.texto, color: c.textoSuave, marginTop: 4, marginBottom: 14 },
+    botaoPrevia: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderColor: c.destaque,
+      borderRadius: 20,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      marginBottom: 20,
+    },
+    botaoPreviaTexto: { fontFamily: fontes.textoForte, fontSize: 13, color: c.destaque },
     vazio: { fontFamily: fontes.texto, color: c.textoSuave, marginBottom: 12, lineHeight: 20 },
     itemMidia: {
       flexDirection: 'row',

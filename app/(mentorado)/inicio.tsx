@@ -151,7 +151,7 @@ export default function MentoradoInicio() {
 
         {!carregando && categorias.length === 0 && (
           <Text style={styles.aviso}>
-            Você ainda não está inscrito em nenhuma categoria. Fale com seu mentor.
+            Você ainda não está inscrito em nenhum curso. Fale com seu mentor.
           </Text>
         )}
 
