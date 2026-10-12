@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import { lerComoBytes } from '../lib/midias';
+import { FOTO_PERFIL, otimizarImagem } from '../lib/imagem';
 import { fontes, useEstilos, useTema, type Cores } from '../lib/tema';
 
 const BUCKET = 'avatares';
@@ -58,21 +59,20 @@ export function Avatar({
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
     });
     if (resultado.canceled) return;
 
     const foto = resultado.assets[0];
-    const tipo = foto.mimeType ?? 'image/jpeg';
-    const extensao = tipo.split('/')[1] ?? 'jpg';
     // Nome novo a cada troca, para o celular não mostrar a foto antiga guardada em cache
-    const novoCaminho = `${usuario.id}/${Date.now()}.${extensao}`;
+    const novoCaminho = `${usuario.id}/${Date.now()}.jpg`;
 
     setEnviando(true);
     try {
+      // A foto aparece com no máximo 108 px: guarda só 256 px, comprimida (~20 KB)
+      const reduzida = await otimizarImagem(foto.uri, foto.width, foto.height, FOTO_PERFIL);
       const { error: erroEnvio } = await supabase.storage
         .from(BUCKET)
-        .upload(novoCaminho, await lerComoBytes(foto.uri), { contentType: tipo });
+        .upload(novoCaminho, await lerComoBytes(reduzida), { contentType: 'image/jpeg' });
       if (erroEnvio) throw erroEnvio;
 
       const { error: erroCadastro } = await supabase
@@ -84,7 +84,7 @@ export function Avatar({
       if (caminho) await supabase.storage.from(BUCKET).remove([caminho]);
       definirAvatar(novoCaminho);
     } catch {
-      onErro?.('Não foi possível trocar a foto. Tente uma imagem menor que 5 MB.');
+      onErro?.('Não foi possível trocar a foto. Verifique a conexão e tente de novo.');
     } finally {
       setEnviando(false);
     }
@@ -109,7 +109,12 @@ export function Avatar({
           <ActivityIndicator color={cores.sobrePrimaria} />
         </View>
       )}
-      <View style={[estilos.selo, tamanho > 60 && { right: 4, bottom: 4, width: 26, height: 26, borderRadius: 13 }]}>
+      <View
+        style={[
+          estilos.selo,
+          tamanho > 60 && { right: 4, bottom: 4, width: 26, height: 26, borderRadius: 13 },
+        ]}
+      >
         <Text style={estilos.seloTexto}>✎</Text>
       </View>
     </Pressable>

@@ -25,6 +25,7 @@ import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { apagarArquivos, enviarArquivo } from '../../../lib/midias';
 import { extrairIdYoutube, linkYoutube } from '../../../lib/youtube';
+import { FOTO_AULA, otimizarImagem } from '../../../lib/imagem';
 import { fontes, useEstilos, useTema, type Cores } from '../../../lib/tema';
 
 type Midia = {
@@ -56,6 +57,27 @@ const GRAVACAO_VOZ: RecordingOptions = {
   },
   web: { mimeType: 'audio/webm', bitsPerSecond: 64000 },
 };
+
+// Áudio enviado de arquivo: limite de tamanho (o mesmo vale no servidor, patch 14)
+const LIMITE_AUDIO_MB = 30;
+const LIMITE_AUDIO_BYTES = LIMITE_AUDIO_MB * 1_048_576;
+
+// Alguns celulares não informam o tipo do arquivo; descobre pela extensão,
+// porque o servidor só aceita arquivos de áudio e imagem.
+function tipoDeAudio(nome: string, informado?: string | null) {
+  if (informado?.startsWith('audio/')) return informado;
+  const extensao = nome.split('.').pop()?.toLowerCase();
+  const tipos: Record<string, string> = {
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    ogg: 'audio/ogg',
+    opus: 'audio/ogg',
+    wav: 'audio/wav',
+    webm: 'audio/webm',
+  };
+  return tipos[extensao ?? ''] ?? 'audio/mpeg';
+}
 
 // No navegador a gravação sai em WebM; no celular, em M4A
 const ARQUIVO_GRAVACAO =
@@ -241,20 +263,17 @@ export default function ConteudoAula() {
       return;
     }
 
-    const resultado = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.8,
-    });
+    const resultado = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'] });
     if (resultado.canceled) return;
 
     const item = resultado.assets[0];
-    const nomeArquivo = item.fileName ?? 'foto.jpg';
-    const contentType = item.mimeType ?? 'image/jpeg';
 
     setEnviando(true);
     setErro(null);
     try {
-      const caminho = await enviarArquivo(item.uri, usuario!.id, aulaId, nomeArquivo, contentType);
+      // Reduz para no máximo 1280 px e comprime em JPEG antes de enviar
+      const reduzida = await otimizarImagem(item.uri, item.width, item.height, FOTO_AULA);
+      const caminho = await enviarArquivo(reduzida, usuario!.id, aulaId, 'foto.jpg', 'image/jpeg');
       await criarMidia({ tipo: 'imagem', caminho_storage: caminho });
     } catch {
       setErro('Não foi possível enviar o arquivo.');
@@ -269,6 +288,15 @@ export default function ConteudoAula() {
 
     const arquivo = resultado.assets[0];
 
+    // Áudio pronto não dá para comprimir no aparelho: limita o tamanho
+    if (arquivo.size && arquivo.size > LIMITE_AUDIO_BYTES) {
+      setErro(
+        `Este áudio tem ${Math.round(arquivo.size / 1_048_576)} MB; o limite é ${LIMITE_AUDIO_MB} MB. ` +
+          'Grave pelo botão "Gravar áudio" (que já salva compactado) ou exporte o arquivo em MP3 ou M4A com qualidade de voz.'
+      );
+      return;
+    }
+
     setEnviando(true);
     setErro(null);
     try {
@@ -277,7 +305,7 @@ export default function ConteudoAula() {
         usuario!.id,
         aulaId,
         arquivo.name,
-        arquivo.mimeType ?? 'audio/mpeg'
+        tipoDeAudio(arquivo.name, arquivo.mimeType)
       );
       await criarMidia({ tipo: 'audio_upload', caminho_storage: caminho });
     } catch {

@@ -7,6 +7,12 @@
 -- O 1º pedaço restringe upload/edição/remoção ao mentor dono; o 2º restringe a leitura
 -- a quem pode ver a categoria da aula.
 
+-- Limites para economizar o plano gratuito: até 30 MB, só imagem e áudio (vídeo vai pelo YouTube)
+update storage.buckets
+set file_size_limit = 31457280,
+    allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp', 'audio/*']
+where id = 'midias';
+
 create policy "ler arquivos das aulas que pode ver"
 on storage.objects for select to authenticated
 using (
@@ -39,7 +45,7 @@ using (
 -- Criado por SQL; pasta {usuario_id}/arquivo.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('avatares', 'avatares', false, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+values ('avatares', 'avatares', false, 1048576,array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
 -- Vê: a própria pessoa, qualquer mentor, e todos veem a foto dos mentores
