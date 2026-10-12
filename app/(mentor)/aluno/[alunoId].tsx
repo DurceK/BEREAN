@@ -13,7 +13,11 @@ type Progresso = { status: 'em_andamento' | 'concluido'; atualizado_em: string }
 type Aluno = { nome: string; matricula: string; avatar_url: string | null };
 
 function formatarData(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  });
 }
 
 function haQuanto(iso: string) {
@@ -36,6 +40,10 @@ export default function FichaAluno() {
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [progresso, setProgresso] = useState<Record<string, Progresso>>({});
+  // Acertos nos exercícios de cada aula (1ª tentativa)
+  const [exercicios, setExercicios] = useState<
+    Record<string, { acertos: number; respondidas: number }>
+  >({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -45,14 +53,28 @@ export default function FichaAluno() {
       let cancelado = false;
 
       async function carregar() {
-        const [resAluno, resInscricoes, resProgresso] = await Promise.all([
-          supabase.from('usuarios').select('nome, matricula, avatar_url').eq('id', alunoId).single(),
+        const [resAluno, resInscricoes, resProgresso, resRespostas] = await Promise.all([
+          supabase
+            .from('usuarios')
+            .select('nome, matricula, avatar_url')
+            .eq('id', alunoId)
+            .single(),
           supabase
             .from('inscricoes')
-            .select('categorias!inner(id, nome, mentor_id, modulos(id, nome, ordem, aulas(id, titulo, ordem)))')
+            .select(
+              'categorias!inner(id, nome, mentor_id, modulos(id, nome, ordem, aulas(id, titulo, ordem)))'
+            )
             .eq('mentorado_id', alunoId)
             .eq('categorias.mentor_id', usuario!.id),
-          supabase.from('progresso').select('aula_id, status, atualizado_em').eq('mentorado_id', alunoId),
+          supabase
+            .from('progresso')
+            .select('aula_id, status, atualizado_em')
+            .eq('mentorado_id', alunoId),
+          // 1ª tentativa de cada pergunta respondida, com a aula a que pertence
+          supabase
+            .from('respostas')
+            .select('correta, questoes!inner(midias!inner(aula_id))')
+            .eq('mentorado_id', alunoId),
         ]);
         if (cancelado) return;
 
@@ -78,9 +100,21 @@ export default function FichaAluno() {
           mapa[linha.aula_id] = { status: linha.status, atualizado_em: linha.atualizado_em };
         }
 
+        const porAula: Record<string, { acertos: number; respondidas: number }> = {};
+        for (const linha of resRespostas.data ?? []) {
+          const questao = linha.questoes as unknown as { midias: { aula_id: string } } | null;
+          const aulaId = questao?.midias?.aula_id;
+          if (!aulaId) continue;
+          const atual = porAula[aulaId] ?? { acertos: 0, respondidas: 0 };
+          atual.respondidas += 1;
+          if (linha.correta) atual.acertos += 1;
+          porAula[aulaId] = atual;
+        }
+
         setAluno(resAluno.data);
         setCategorias(lista);
         setProgresso(mapa);
+        setExercicios(porAula);
         setErro(null);
         setCarregando(false);
       }
@@ -112,7 +146,9 @@ export default function FichaAluno() {
   const concluidas = todasAsAulas.filter((a) => progresso[a.id]?.status === 'concluido').length;
   const emAndamento = todasAsAulas.filter((a) => progresso[a.id]?.status === 'em_andamento').length;
   const naoIniciadas = todasAsAulas.length - concluidas - emAndamento;
-  const datas = todasAsAulas.map((a) => progresso[a.id]?.atualizado_em).filter((d): d is string => !!d);
+  const datas = todasAsAulas
+    .map((a) => progresso[a.id]?.atualizado_em)
+    .filter((d): d is string => !!d);
   const ultimaAtividade = datas.sort().at(-1);
   const percentual = porcentagem(concluidas, todasAsAulas.length);
 
@@ -124,7 +160,9 @@ export default function FichaAluno() {
           <Text style={estilos.nome}>{aluno.nome}</Text>
           <Text style={estilos.matricula}>Matrícula {aluno.matricula}</Text>
           <Text style={estilos.atividade}>
-            {ultimaAtividade ? `Última atividade ${haQuanto(ultimaAtividade)}` : 'Ainda não abriu nenhuma aula'}
+            {ultimaAtividade
+              ? `Última atividade ${haQuanto(ultimaAtividade)}`
+              : 'Ainda não abriu nenhuma aula'}
           </Text>
         </View>
       </View>
@@ -172,7 +210,10 @@ export default function FichaAluno() {
                       />
                       <Text style={estilos.aulaTitulo}>{aula.titulo}</Text>
                       <Text
-                        style={[estilos.aulaStatus, p?.status === 'concluido' && estilos.aulaStatusConcluido]}
+                        style={[
+                          estilos.aulaStatus,
+                          p?.status === 'concluido' && estilos.aulaStatusConcluido,
+                        ]}
                       >
                         {p?.status === 'concluido'
                           ? `Concluída em ${formatarData(p.atualizado_em)}`
@@ -180,6 +221,12 @@ export default function FichaAluno() {
                             ? `Começou em ${formatarData(p.atualizado_em)}`
                             : 'Não iniciada'}
                       </Text>
+                      {exercicios[aula.id] && (
+                        <Text style={estilos.exercicios}>
+                          Exercícios: {exercicios[aula.id].acertos} de{' '}
+                          {exercicios[aula.id].respondidas} acertos (1ª tentativa)
+                        </Text>
+                      )}
                     </View>
                   );
                 })}
@@ -201,7 +248,9 @@ type Estilos = ReturnType<typeof criarEstilos>;
 function Barra({ fracao, estilos }: { fracao: number; estilos: Estilos }) {
   return (
     <View style={estilos.barra}>
-      <View style={[estilos.barraPreenchida, { width: `${Math.min(1, Math.max(0, fracao)) * 100}%` }]} />
+      <View
+        style={[estilos.barraPreenchida, { width: `${Math.min(1, Math.max(0, fracao)) * 100}%` }]}
+      />
     </View>
   );
 }
@@ -234,7 +283,12 @@ const criarEstilos = (c: Cores) =>
       padding: 16,
       gap: 10,
     },
-    resumoLinha: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 },
+    resumoLinha: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+      gap: 12,
+    },
     resumoRotulo: { fontFamily: fontes.textoForte, color: c.texto },
     resumoPercentual: {
       fontFamily: fontes.tituloLeve,
@@ -246,11 +300,20 @@ const criarEstilos = (c: Cores) =>
     barraPreenchida: { height: '100%', backgroundColor: c.destaque },
     numeros: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 4 },
     numero: { alignItems: 'center' },
-    numeroValor: { fontFamily: fontes.tituloLeve, fontSize: 20, color: c.texto, fontVariant: ['tabular-nums'] },
+    numeroValor: {
+      fontFamily: fontes.tituloLeve,
+      fontSize: 20,
+      color: c.texto,
+      fontVariant: ['tabular-nums'],
+    },
     numeroRotulo: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave },
     categoria: { gap: 10 },
     categoriaTitulo: { fontFamily: fontes.titulo, fontSize: 19, color: c.texto, flex: 1 },
-    categoriaContagem: { fontFamily: fontes.textoMedio, color: c.textoSuave, fontVariant: ['tabular-nums'] },
+    categoriaContagem: {
+      fontFamily: fontes.textoMedio,
+      color: c.textoSuave,
+      fontVariant: ['tabular-nums'],
+    },
     modulo: { gap: 6, marginTop: 6 },
     moduloTitulo: { fontFamily: fontes.textoForte, color: c.textoSuave },
     semAulas: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave },
@@ -272,4 +335,11 @@ const criarEstilos = (c: Cores) =>
     aulaTitulo: { flex: 1, minWidth: 140, fontFamily: fontes.textoMedio, color: c.texto },
     aulaStatus: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave },
     aulaStatusConcluido: { color: c.destaque },
+    exercicios: {
+      width: '100%',
+      fontFamily: fontes.textoMedio,
+      fontSize: 12,
+      color: c.texto,
+      paddingLeft: 20,
+    },
   });

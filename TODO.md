@@ -20,6 +20,7 @@
 - [x] **Tela da aula para o mentorado**: player de áudio (±10s, velocidade), vídeo, foto, texto lido em voz com destaque da palavra, progresso (em andamento ao abrir, concluída pelo botão)
   - [x] Vídeos por link do YouTube no lugar de envio de vídeo (economiza o Storage)
   - [ ] Testar o vídeo do YouTube no app instalado no celular (Expo Go): no navegador já funciona
+  - [x] Exercícios de múltipla escolha: perguntas com 2 a 6 alternativas e explicação, correção na hora pelo servidor (gabarito escondido do aluno), pode refazer, ficha mostra a 1ª tentativa
   - [ ] Transcrição sincronizada para áudio gravado/enviado (a tabela `transcricoes` existe, mas ainda não há como cadastrar os trechos)
   - [ ] Mini-player fixo para continuar ouvindo ao navegar entre telas (do briefing)
   - [x] Continuar de onde parou: posição de cada áudio e vídeo do YouTube e o que já foi visto ficam em `progresso_midias` (vale entre aparelhos); "Continuar aula" abre a última aula vista

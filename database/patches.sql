@@ -461,6 +461,122 @@
 -- on progresso_midias for update to authenticated
 -- using (mentorado_id = auth.uid());
 
+-- ===== Patch 13: exercicios de multipla escolha (JÁ APLICADO) =====
+-- -- Um exercício é um conteúdo da aula (midias.tipo = 'exercicio') com perguntas e alternativas.
+-- -- O gabarito fica numa tabela que só o mentor dono lê; o aluno responde pela função
+-- -- responder_questao, que confere no servidor, grava a 1ª tentativa e devolve o resultado.
+--
+-- alter table midias drop constraint if exists midias_tipo_check;
+-- alter table midias add constraint midias_tipo_check
+--   check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube', 'exercicio'));
+--
+-- create table questoes (
+--   id uuid primary key default gen_random_uuid(),
+--   midia_id uuid not null references midias (id) on delete cascade,
+--   ordem integer not null default 0,
+--   enunciado text not null,
+--   explicacao text, -- opcional, mostrada depois que o aluno responde
+--   criado_em timestamptz not null default now()
+-- );
+--
+-- create table alternativas (
+--   id uuid primary key default gen_random_uuid(),
+--   questao_id uuid not null references questoes (id) on delete cascade,
+--   ordem integer not null default 0,
+--   texto text not null
+-- );
+--
+-- create table gabaritos (
+--   questao_id uuid primary key references questoes (id) on delete cascade,
+--   alternativa_id uuid not null references alternativas (id) on delete cascade
+-- );
+--
+-- create table respostas (
+--   mentorado_id uuid not null references usuarios (id) on delete cascade,
+--   questao_id uuid not null references questoes (id) on delete cascade,
+--   alternativa_id uuid not null references alternativas (id) on delete cascade,
+--   correta boolean not null,
+--   respondido_em timestamptz not null default now(),
+--   primary key (mentorado_id, questao_id) -- só a 1ª tentativa
+-- );
+--
+-- create or replace function categoria_da_questao(questao uuid)
+-- returns uuid language sql security definer stable set search_path = public as $$
+--   select categoria_da_midia(midia_id) from questoes where id = questao;
+-- $$;
+--
+-- alter table questoes enable row level security;
+-- alter table alternativas enable row level security;
+-- alter table gabaritos enable row level security;
+-- alter table respostas enable row level security;
+--
+-- create policy "ver questoes" on questoes for select to authenticated
+-- using (pode_ver_categoria(categoria_da_midia(midia_id)));
+-- create policy "mentor cria questoes" on questoes for insert to authenticated
+-- with check (e_mentor() and e_dono_da_categoria(categoria_da_midia(midia_id)));
+-- create policy "mentor edita questoes" on questoes for update to authenticated
+-- using (e_dono_da_categoria(categoria_da_midia(midia_id)));
+-- create policy "mentor apaga questoes" on questoes for delete to authenticated
+-- using (e_dono_da_categoria(categoria_da_midia(midia_id)));
+--
+-- create policy "ver alternativas" on alternativas for select to authenticated
+-- using (pode_ver_categoria(categoria_da_questao(questao_id)));
+-- create policy "mentor cria alternativas" on alternativas for insert to authenticated
+-- with check (e_mentor() and e_dono_da_categoria(categoria_da_questao(questao_id)));
+-- create policy "mentor edita alternativas" on alternativas for update to authenticated
+-- using (e_dono_da_categoria(categoria_da_questao(questao_id)));
+-- create policy "mentor apaga alternativas" on alternativas for delete to authenticated
+-- using (e_dono_da_categoria(categoria_da_questao(questao_id)));
+--
+-- -- Gabarito: só o mentor dono (o aluno nunca lê)
+-- create policy "mentor ve gabarito" on gabaritos for select to authenticated
+-- using (e_dono_da_categoria(categoria_da_questao(questao_id)));
+-- create policy "mentor cria gabarito" on gabaritos for insert to authenticated
+-- with check (e_mentor() and e_dono_da_categoria(categoria_da_questao(questao_id)));
+-- create policy "mentor edita gabarito" on gabaritos for update to authenticated
+-- using (e_dono_da_categoria(categoria_da_questao(questao_id)));
+-- create policy "mentor apaga gabarito" on gabaritos for delete to authenticated
+-- using (e_dono_da_categoria(categoria_da_questao(questao_id)));
+--
+-- -- Respostas: o aluno lê as próprias, o mentor lê as do seu conteúdo.
+-- -- Ninguém grava direto: só pela função responder_questao.
+-- create policy "mentorado ve suas respostas" on respostas for select to authenticated
+-- using (mentorado_id = auth.uid());
+-- create policy "mentor ve respostas do seu conteudo" on respostas for select to authenticated
+-- using (e_dono_da_categoria(categoria_da_questao(questao_id)));
+--
+-- create or replace function responder_questao(questao uuid, alternativa uuid)
+-- returns json language plpgsql security definer set search_path = public as $$
+-- declare
+--   certa uuid;
+--   texto_explicacao text;
+-- begin
+--   if not pode_ver_categoria(categoria_da_questao(questao)) then
+--     raise exception 'sem acesso a esta questão';
+--   end if;
+--   if not exists (select 1 from alternativas where id = alternativa and questao_id = questao) then
+--     raise exception 'alternativa não pertence à questão';
+--   end if;
+--
+--   select g.alternativa_id into certa from gabaritos g where g.questao_id = questao;
+--   select q.explicacao into texto_explicacao from questoes q where q.id = questao;
+--
+--   -- grava só a primeira tentativa de cada aluno
+--   insert into respostas (mentorado_id, questao_id, alternativa_id, correta)
+--   values (auth.uid(), questao, alternativa, alternativa = certa)
+--   on conflict (mentorado_id, questao_id) do nothing;
+--
+--   return json_build_object(
+--     'correta', alternativa = certa,
+--     'alternativa_correta', certa,
+--     'explicacao', texto_explicacao
+--   );
+-- end;
+-- $$;
+--
+-- revoke execute on function responder_questao(uuid, uuid) from public, anon;
+-- grant execute on function responder_questao(uuid, uuid) to authenticated;
+
 
 -- =====================================================================
 -- PRÓXIMOS PATCHES (ainda não aplicados): ficam abaixo desta linha

@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -77,6 +77,7 @@ const ROTULO_TIPO: Record<string, string> = {
   imagem: 'Foto',
   video: 'Vídeo enviado',
   youtube: 'Vídeo do YouTube',
+  exercicio: 'Exercício de múltipla escolha',
 };
 
 export default function ConteudoAula() {
@@ -136,6 +137,30 @@ export default function ConteudoAula() {
       cancelado = true;
     };
   }, [aulaId]);
+
+  // Cria o exercício (vazio) e abre a tela para montar as perguntas
+  async function criarExercicio() {
+    if (!usuario) return;
+    setErro(null);
+    const proximaOrdem = midias.reduce((maior, m) => Math.max(maior, m.ordem), -1) + 1;
+    const { data, error } = await supabase
+      .from('midias')
+      .insert({
+        aula_id: aulaId,
+        ordem: proximaOrdem,
+        tipo: 'exercicio',
+        titulo: tituloNovo.trim() || null,
+      })
+      .select('id')
+      .single();
+    if (error || !data) {
+      setErro('Não foi possível criar o exercício.');
+      return;
+    }
+    setTituloNovo('');
+    await carregarMidias();
+    router.push(`/(mentor)/exercicio/${data.id}`);
+  }
 
   async function criarMidia(campos: Partial<Midia> & { tipo: string }) {
     if (!usuario) return;
@@ -352,6 +377,13 @@ export default function ConteudoAula() {
                 {midia.url_externa}
               </Text>
             )}
+            {midia.tipo === 'exercicio' && (
+              <Link href={`/(mentor)/exercicio/${midia.id}`} asChild>
+                <Pressable>
+                  <Text style={styles.itemLink}>Editar perguntas ›</Text>
+                </Pressable>
+              </Link>
+            )}
           </View>
           <View style={styles.itemAcoes}>
             <Pressable
@@ -477,6 +509,10 @@ export default function ConteudoAula() {
         disabled={enviando}
       >
         <Text style={styles.botaoTexto}>Vídeo do YouTube (link)</Text>
+      </Pressable>
+
+      <Pressable style={styles.botao} onPress={criarExercicio} disabled={enviando}>
+        <Text style={styles.botaoTexto}>Exercício de múltipla escolha</Text>
       </Pressable>
 
       <Pressable style={styles.botao} onPress={escolherFoto} disabled={enviando}>
@@ -647,6 +683,7 @@ const criarEstilos = (c: Cores) =>
     modalAviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20, marginBottom: 16 },
     itemTexto: { fontFamily: fontes.textoForte, color: c.texto },
     itemTipo: { fontFamily: fontes.texto, fontSize: 12, color: c.destaque, marginTop: 2 },
+    itemLink: { fontFamily: fontes.textoForte, fontSize: 13, color: c.destaque, marginTop: 6 },
     rotuloCampo: { fontFamily: fontes.textoMedio, color: c.texto, marginBottom: 6 },
     campoTitulo: {
       fontFamily: fontes.texto,

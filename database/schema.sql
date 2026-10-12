@@ -58,10 +58,11 @@ create table aulas (
 --      'imagem'        -> foto enviada
 --      'video'         -> vídeo enviado para o Storage (não é mais oferecido no app; os antigos continuam)
 --      'youtube'       -> vídeo no YouTube; guarda só o link em url_externa
+--      'exercicio'     -> exercício de múltipla escolha (perguntas na tabela questoes)
 create table midias (
   id uuid primary key default gen_random_uuid(),
   aula_id uuid not null references aulas (id) on delete cascade,
-  tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube')),
+  tipo text not null check (tipo in ('audio_gravado', 'audio_upload', 'audio_texto', 'imagem', 'video', 'youtube', 'exercicio')),
   url_externa text, -- link do vídeo quando tipo = 'youtube'
   titulo text, -- opcional, mostrado acima do conteúdo
   ordem integer not null default 0,
@@ -104,4 +105,37 @@ create table progresso_midias (
   visto boolean not null default false,
   atualizado_em timestamptz not null default now(),
   primary key (mentorado_id, midia_id)
+);
+
+-- 10. Exercícios de múltipla escolha (midias.tipo = 'exercicio')
+create table questoes (
+  id uuid primary key default gen_random_uuid(),
+  midia_id uuid not null references midias (id) on delete cascade,
+  ordem integer not null default 0,
+  enunciado text not null,
+  explicacao text, -- opcional, mostrada depois que o aluno responde
+  criado_em timestamptz not null default now()
+);
+
+create table alternativas (
+  id uuid primary key default gen_random_uuid(),
+  questao_id uuid not null references questoes (id) on delete cascade,
+  ordem integer not null default 0,
+  texto text not null
+);
+
+-- Gabarito separado: só o mentor dono lê (o aluno responde pela função responder_questao)
+create table gabaritos (
+  questao_id uuid primary key references questoes (id) on delete cascade,
+  alternativa_id uuid not null references alternativas (id) on delete cascade
+);
+
+-- Respostas dos alunos: só a 1ª tentativa de cada pergunta
+create table respostas (
+  mentorado_id uuid not null references usuarios (id) on delete cascade,
+  questao_id uuid not null references questoes (id) on delete cascade,
+  alternativa_id uuid not null references alternativas (id) on delete cascade,
+  correta boolean not null,
+  respondido_em timestamptz not null default now(),
+  primary key (mentorado_id, questao_id)
 );

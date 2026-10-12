@@ -17,6 +17,7 @@ import { PlayerAudio } from './PlayerAudio';
 import { PlayerVideo } from './PlayerVideo';
 import { LeitorTexto } from './LeitorTexto';
 import { PlayerYoutube } from './PlayerYoutube';
+import { Exercicio } from './Exercicio';
 import { extrairIdYoutube } from '../../lib/youtube';
 import {
   carregarProgressoMidias,
@@ -226,6 +227,7 @@ export function TelaAula({ aulaId, previa = false, rotaDaAula }: Props) {
   // Fotos contam como vistas ao abrir a aula.
   const paraAssistir = midias.filter((m) => {
     if (m.tipo === 'audio_texto') return !!m.texto_origem;
+    if (m.tipo === 'exercicio') return true;
     if (m.tipo === 'youtube') return !!extrairIdYoutube(m.url_externa ?? '');
     return m.tipo !== 'imagem' && !!m.caminho_storage && !!urls[m.caminho_storage];
   });
@@ -283,6 +285,9 @@ export function TelaAula({ aulaId, previa = false, rotaDaAula }: Props) {
                 posicaoInicial={posicoes[midia.id] ?? 0}
                 onProgresso={salvarPosicao}
               />
+            )}
+            {midia.tipo === 'exercicio' && (
+              <Exercicio id={midia.id} previa={previa} onTerminar={marcarVisto} />
             )}
             {midia.tipo === 'youtube' && !videoYoutube && (
               <Text style={styles.vazio}>Este vídeo não pôde ser carregado.</Text>
