@@ -41,3 +41,29 @@
 - [x] **Atualizar pacotes do Expo** (SDK 57: expo 57.0.11 → 57.0.27 e demais pacotes)
 
 - [ ] **Revisar alertas de segurança do npm** (`npm audit` aponta 32, sendo 1 crítico). Avaliar quais afetam o app de verdade antes de rodar `npm audit fix`, que pode quebrar dependências.
+
+## Caminho até vender (avaliação de 12/10/2026)
+
+O produto está pronto para piloto; o que falta para vender é operacional: lojas, servidor, parte legal e suporte.
+
+### Bloqueantes: antes do 1º cliente pagante
+1. [ ] **App instalável**: gerar com EAS Build, testar no celular (TestFlight na Apple e teste interno no Google) e passar pela revisão das lojas. Até hoje quase tudo foi testado no navegador.
+2. [ ] **Supabase no plano Pro para clientes pagantes**: o free pausa após 7 dias sem uso e não tem backup automático. Decidir se os projetos ficam na organização da DurceK (um plano para todos, mais o custo de cada banco) ou na conta de cada cliente.
+3. [ ] **Parte legal**: política de privacidade publicada num endereço na internet (as lojas exigem), adequação à LGPD (nome, foto e desempenho dos alunos) e modelo de contrato (dono dos dados, suporte, cancelamento).
+4. [ ] **Área do mentor publicada na internet** (ver "Painel de administração online" acima).
+5. [ ] **Conferir a regra da Apple sobre apagar conta pelo app**: talvez não se aplique, porque quem cria as contas é o mentor, mas confirmar antes da revisão.
+6. [ ] **Empresa para emitir nota**: abrir CNPJ e confirmar com um contador o enquadramento (o MEI pode não aceitar desenvolvimento de software).
+
+### Importantes: logo depois de começar
+7. [ ] **Piloto real**: 3 a 4 semanas da Camila com uma turma de verdade (10 ou mais alunos), anotando os problemas.
+8. [ ] **Piloto pago com desconto ("cliente fundador")** para o militar e o Danilo, em troca de retorno de uso e depoimento.
+9. [ ] **Monitoramento de erros** (ex: Sentry), para saber quando o app trava no celular de um aluno.
+10. [ ] **EAS Update**: corrigir bugs em todos os clientes sem passar pela revisão das lojas.
+11. [ ] **Diminuir o suporte manual**: hoje a senha do mentor e apagar aluno dependem de mexer no banco.
+12. [ ] **Testes automáticos** das partes críticas (login, progresso, exercícios).
+13. [ ] **Precificação** (decidido em 12/10/2026 para a fase de MVP, cliente típico = professor sozinho):
+    - Plano baixo custo para os primeiros clientes fundadores (começando pelo Danilo): R$ 100/mês, sem implantação, no Supabase free, por 1 ano ou até precisar do plano Pro do banco (o que vier primeiro)
+    - No contrato: preço de fundador válido por 12 meses; limite de alunos ativos (ex: 50); suporte = dúvidas e correção de erros; dados são do cliente; em troca, depoimento e permissão para citá-lo
+    - Avaliar começar só com Android + versão web para iPhone (evita a conta Apple de US$ 99/ano para o professor)
+    - Supabase free: criar "despertador" diário (evita a pausa de 7 dias) e backup semanal automático; limite de 2 projetos grátis por conta (Camila + Danilo)
+    - Faixas para clientes maiores (referência): implantação R$ 1.500–2.500; R$ 297 / 497 / 797 por até 50 / 200 / 500 alunos, já no Supabase Pro
