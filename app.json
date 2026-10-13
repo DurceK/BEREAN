@@ -14,10 +14,20 @@
     "android": {
       "predictiveBackGestureEnabled": false
     },
-    "web": {},
-    "plugins": ["expo-router", "expo-audio", "expo-font", "expo-video"],
+    "web": {
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-audio",
+      "expo-font",
+      "expo-video"
+    ],
     "experiments": {
       "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     }
   }
 }

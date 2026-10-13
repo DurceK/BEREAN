@@ -12,7 +12,7 @@
   - [x] Foto de perfil e cabeçalho de perfil nas telas iniciais
   - [x] Ficha do aluno: progresso geral e por categoria, situação e data de cada aula, última atividade
   - [x] Apagar aluno: decidido não ter no app por segurança, por enquanto; continua só pelo painel do Supabase (Authentication → Users)
-  - [ ] Publicar o painel num endereço na internet (decidido: é a área do mentor do próprio app; falta escolher a hospedagem)
+  - [x] Publicar o painel na internet: EAS Hosting em https://berean.expo.app (a área do mentor do próprio app; publicar de novo: ver `clientes/LEIAME.md`)
 
 - [x] **Esqueci a senha**: o link na tela de login orienta a pedir ao mentor, que redefine pela tela Alunos (senha provisória + troca obrigatória no próximo acesso). O "recuperar por e-mail" não serve porque o login usa e-mail fictício (`matricula@berean.app`).
   - [x] Senha esquecida do próprio mentor: decidido resolver direto no banco (quem administra o Supabase redefine); não terá tela no app
@@ -52,7 +52,7 @@
 O produto está pronto para piloto; o que falta para vender é operacional: lojas, servidor, parte legal e suporte.
 
 ### Bloqueantes: antes do 1º cliente pagante
-1. [ ] **App instalável**: gerar com EAS Build, testar no celular (TestFlight na Apple e teste interno no Google) e passar pela revisão das lojas. Até hoje quase tudo foi testado no navegador.
+1. [ ] **App instalável** (13/10/2026: projeto @kaiquedurce/BEREAN no Expo, `eas.json` com perfil `preview` que gera APK e EAS Update ligado; falta testar o APK no celular). Gerar com EAS Build, testar no celular (TestFlight na Apple e teste interno no Google) e passar pela revisão das lojas. Até hoje quase tudo foi testado no navegador.
 2. [ ] **Supabase no plano Pro para clientes pagantes**: o free pausa após 7 dias sem uso e não tem backup automático. Decidir se os projetos ficam na organização da DurceK (um plano para todos, mais o custo de cada banco) ou na conta de cada cliente.
 3. [ ] **Parte legal**: política de privacidade publicada num endereço na internet (as lojas exigem), adequação à LGPD (nome, foto e desempenho dos alunos) e modelo de contrato (dono dos dados, suporte, cancelamento).
 4. [ ] **Área do mentor publicada na internet** (ver "Painel de administração online" acima).

@@ -65,3 +65,27 @@ Os papéis são `titulo`, `tituloLeve`, `texto`, `textoMedio` e `textoForte`, e 
    linha dele em `usuarios` (modelo em `database/bootstrap_contas.sql`).
 6. `npm run cliente -- musica-danilo` e teste.
 7. No fim, volte o `supabase link` para o projeto em que for trabalhar em seguida.
+
+## Publicar (site, APK e atualizações)
+
+Cada cliente tem o próprio projeto no Expo (`dono` e `projetoExpo` no `cliente.json`). As chaves do
+Supabase ficam cadastradas no Expo (`npx.cmd eas-cli env:list`), não no GitHub.
+
+- **Site** (área do mentor e alunos de iPhone):
+  ```
+  npx.cmd expo export -p web
+  npx.cmd eas-cli deploy --prod
+  ```
+  BEREAN: https://berean.expo.app
+- **APK de Android** (para baixar fora da Play Store):
+  ```
+  npx.cmd eas-cli build -p android --profile preview
+  ```
+  O Expo mostra o link e o QR code para baixar.
+- **Correção sem reinstalar o APK** (só mudanças de código, não de bibliotecas novas):
+  ```
+  npx.cmd eas-cli update --channel preview --environment preview --message "o que mudou"
+  ```
+  Quem tem o APK recebe ao abrir o app (às vezes na segunda abertura). Mudou biblioteca ou a
+  versão no `app.json`? Aí precisa gerar um APK novo.
+

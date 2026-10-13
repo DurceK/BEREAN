@@ -20,6 +20,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: cliente.slug,
   scheme: cliente.scheme,
   icon: `${raiz}/icon.png`,
+  // Cada cliente tem o próprio projeto no Expo (builds, site e atualizações separados)
+  owner: cliente.dono,
+  extra: { ...config.extra, eas: { projectId: cliente.projetoExpo } },
+  updates: { url: `https://u.expo.dev/${cliente.projetoExpo}` },
   ios: { ...config.ios, bundleIdentifier: cliente.identificador },
   android: {
     ...config.android,
