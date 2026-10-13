@@ -549,6 +549,10 @@ export default function ConteudoAula() {
                   placeholderTextColor={cores.textoSuave}
                   multiline
                 />
+                <Text style={styles.dica}>
+                  Lista de frases: uma por linha. Para mostrar pronúncia e tradução embaixo de cada
+                  frase, separe com | Ex: Hello! | rê-LÔU | Olá! (a voz lê só a frase)
+                </Text>
                 <Text style={styles.idiomaRotulo}>Idioma da voz</Text>
                 <View style={styles.idiomas}>
                   {IDIOMAS.map((opcao) => (
@@ -724,6 +728,10 @@ export default function ConteudoAula() {
               multiline
               autoFocus
             />
+            <Text style={styles.dica}>
+              Lista de frases: uma por linha. Para mostrar pronúncia e tradução embaixo de cada
+              frase, separe com | Ex: Hello! | rê-LÔU | Olá! (a voz lê só a frase)
+            </Text>
             <Text style={styles.idiomaRotulo}>Idioma da voz</Text>
             <View style={styles.idiomas}>
               {IDIOMAS.map((opcao) => (

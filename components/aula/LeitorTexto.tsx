@@ -27,14 +27,28 @@ function dividirNaPalavra(texto: string, inicio: number) {
   ];
 }
 
+type Frase = { frase: string; pronuncia: string | null; traducao: string | null };
+
 // Texto com várias linhas vira uma lista de frases, cada uma com seu botão de ouvir.
-// A numeração no começo da linha ("1. Hello!") é só para o mentor e some na tela e na voz.
-function separarLinhas(texto: string) {
+// Cada linha pode ter partes separadas por "|":
+//   frase | tradução              -> Hello! | Olá!
+//   frase | pronúncia | tradução  -> Hello! | rê-LÔU | Olá!
+// A voz lê só a frase. A numeração no começo ("1. Hello!") é só para o mentor e some.
+function separarLinhas(texto: string): Frase[] | null {
   const linhas = texto
     .split('\n')
     .map((l) => l.trim().replace(/^\d+[.)]\s+/, ''))
-    .filter(Boolean);
-  return linhas.length > 1 ? linhas : null;
+    .filter(Boolean)
+    .map((l) => {
+      const partes = l.split('|').map((p) => p.trim());
+      if (partes.length >= 3)
+        return { frase: partes[0], pronuncia: partes[1] || null, traducao: partes[2] || null };
+      if (partes.length === 2)
+        return { frase: partes[0], pronuncia: null, traducao: partes[1] || null };
+      return { frase: l, pronuncia: null, traducao: null };
+    });
+  const comPartes = linhas.some((l) => l.pronuncia || l.traducao);
+  return linhas.length > 1 || comPartes ? linhas : null;
 }
 
 // Em qual linha está a posição informada pela voz (as linhas são lidas separadas por "\n")
@@ -61,7 +75,8 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
   const ouvidas = useRef(new Set<number>());
 
   const linhas = separarLinhas(texto);
-  const textoFalado = linhas ? linhas.join('\n') : texto;
+  const frases = linhas?.map((l) => l.frase) ?? null;
+  const textoFalado = frases ? frases.join('\n') : texto;
 
   useEffect(() => {
     if (ativo !== id && falando) Speech.stop();
@@ -110,7 +125,7 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
       terminar();
       return;
     }
-    falar(linhas![i], i, () => {
+    falar(frases![i], i, () => {
       ouvidas.current.add(i);
       if (ouvidas.current.size === linhas!.length) onTerminar?.(id);
     });
@@ -121,8 +136,8 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
     ? -1
     : linhaSozinha >= 0
       ? linhaSozinha
-      : linhas
-        ? linhaDaPosicao(linhas, posicao)
+      : frases
+        ? linhaDaPosicao(frases, posicao)
         : -1;
   const partes = falando && !linhas ? dividirNaPalavra(texto, posicao) : null;
 
@@ -165,13 +180,10 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
         <View style={estilos.lista}>
           {linhas.map((linha, i) => (
             <View key={i} style={[estilos.linha, i > 0 && estilos.linhaSeparada]}>
-              <Text style={[estilos.linhaTexto, linhaAtual === i && { color: cores.destaque }]}>
-                {linha}
-              </Text>
               <Pressable
                 style={[estilos.ouvir, linhaAtual === i && estilos.ouvirAtivo]}
                 onPress={() => ouvirLinha(i)}
-                accessibilityLabel={`Ouvir: ${linha}`}
+                accessibilityLabel={`Ouvir: ${linha.frase}`}
                 hitSlop={6}
               >
                 <Ionicons
@@ -180,6 +192,18 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
                   color={linhaAtual === i ? cores.sobrePrimaria : cores.destaque}
                 />
               </Pressable>
+              <View style={estilos.linhaConteudo}>
+                <Text style={[estilos.linhaTexto, linhaAtual === i && { color: cores.destaque }]}>
+                  {linha.frase}
+                </Text>
+                {(linha.pronuncia || linha.traducao) && (
+                  <Text style={estilos.apoio}>
+                    {!!linha.pronuncia && <Text style={estilos.pronuncia}>{linha.pronuncia}</Text>}
+                    {!!linha.pronuncia && !!linha.traducao && '  →  '}
+                    {linha.traducao}
+                  </Text>
+                )}
+              </View>
             </View>
           ))}
         </View>
@@ -220,7 +244,10 @@ const criarEstilos = (c: Cores) =>
     lista: {},
     linha: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
     linhaSeparada: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borda },
-    linhaTexto: { flex: 1, minWidth: 0, fontFamily: fontes.texto, fontSize: 17, color: c.texto },
+    linhaConteudo: { flex: 1, minWidth: 0, gap: 3 },
+    linhaTexto: { fontFamily: fontes.textoForte, fontSize: 18, color: c.texto },
+    apoio: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave, lineHeight: 19 },
+    pronuncia: { fontStyle: 'italic', color: c.destaque },
     ouvir: {
       width: 36,
       height: 36,
