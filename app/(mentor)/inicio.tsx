@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -217,7 +218,11 @@ export default function MentorInicio() {
                   accessibilityState={{ expanded: aberta }}
                   accessibilityLabel={`${aberta ? 'Fechar' : 'Abrir'} ${categoria.nome}`}
                 >
-                  <Text style={estilos.seta}>{aberta ? '▾' : '▸'}</Text>
+                  <Ionicons
+                    name={aberta ? 'chevron-down' : 'chevron-forward'}
+                    size={18}
+                    color={cores.destaque}
+                  />
                   <View style={estilos.info}>
                     <Text style={estilos.categoriaNome}>{categoria.nome}</Text>
                     <Text style={estilos.detalhe}>
@@ -227,7 +232,7 @@ export default function MentorInicio() {
                   </View>
                 </Pressable>
                 <Icone
-                  simbolo="✎"
+                  icone="create-outline"
                   rotulo={`Renomear ${categoria.nome}`}
                   onPress={() =>
                     renomear('Renomear curso', categoria.nome, (nome) =>
@@ -237,7 +242,7 @@ export default function MentorInicio() {
                   estilos={estilos}
                 />
                 <Icone
-                  simbolo="✕"
+                  icone="close"
                   cor={cores.erro}
                   rotulo={`Apagar ${categoria.nome}`}
                   onPress={() =>
@@ -265,7 +270,11 @@ export default function MentorInicio() {
                             accessibilityState={{ expanded: moduloAberto }}
                             accessibilityLabel={`${moduloAberto ? 'Fechar' : 'Abrir'} ${modulo.nome}`}
                           >
-                            <Text style={estilos.setaPequena}>{moduloAberto ? '▾' : '▸'}</Text>
+                            <Ionicons
+                              name={moduloAberto ? 'chevron-down' : 'chevron-forward'}
+                              size={15}
+                              color={cores.textoSuave}
+                            />
                             <View style={estilos.info}>
                               <Text style={estilos.moduloNome}>{modulo.nome}</Text>
                               <Text style={estilos.detalhe}>
@@ -274,7 +283,7 @@ export default function MentorInicio() {
                             </View>
                           </Pressable>
                           <Icone
-                            simbolo="✎"
+                            icone="create-outline"
                             rotulo={`Renomear ${modulo.nome}`}
                             onPress={() =>
                               renomear('Renomear módulo', modulo.nome, (nome) =>
@@ -284,7 +293,7 @@ export default function MentorInicio() {
                             estilos={estilos}
                           />
                           <Icone
-                            simbolo="✕"
+                            icone="close"
                             cor={cores.erro}
                             rotulo={`Apagar ${modulo.nome}`}
                             onPress={() =>
@@ -311,7 +320,7 @@ export default function MentorInicio() {
                                   <Text style={estilos.aulaConteudo}>Conteúdo ›</Text>
                                 </Pressable>
                                 <Icone
-                                  simbolo="✎"
+                                  icone="create-outline"
                                   rotulo={`Renomear ${aula.titulo}`}
                                   onPress={() =>
                                     renomear('Renomear aula', aula.titulo, (titulo) =>
@@ -321,7 +330,7 @@ export default function MentorInicio() {
                                   estilos={estilos}
                                 />
                                 <Icone
-                                  simbolo="✕"
+                                  icone="close"
                                   cor={cores.erro}
                                   rotulo={`Apagar ${aula.titulo}`}
                                   onPress={() =>
@@ -376,22 +385,24 @@ export default function MentorInicio() {
 
 type Estilos = ReturnType<typeof criarEstilos>;
 
+// Ação discreta (editar, apagar): ícone pequeno com área de toque grande
 function Icone({
-  simbolo,
+  icone,
   rotulo,
   onPress,
   cor,
   estilos,
 }: {
-  simbolo: string;
+  icone: keyof typeof Ionicons.glyphMap;
   rotulo: string;
   onPress: () => void;
   cor?: string;
   estilos: Estilos;
 }) {
+  const { cores } = useTema();
   return (
-    <Pressable style={estilos.icone} onPress={onPress} accessibilityLabel={rotulo}>
-      <Text style={[estilos.iconeTexto, cor ? { color: cor } : null]}>{simbolo}</Text>
+    <Pressable style={estilos.icone} onPress={onPress} accessibilityLabel={rotulo} hitSlop={4}>
+      <Ionicons name={icone} size={18} color={cor ?? cores.textoSuave} />
     </Pressable>
   );
 }
@@ -439,19 +450,16 @@ const criarEstilos = (c: Cores) =>
     },
     linha: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     alternar: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 10 },
-    seta: { fontSize: 16, color: c.destaque, width: 16, textAlign: 'center' },
-    setaPequena: { fontSize: 13, color: c.textoSuave, width: 16, textAlign: 'center' },
     info: { flex: 1, minWidth: 0, gap: 2 },
     categoriaNome: { fontFamily: fontes.tituloLeve, fontSize: 18, color: c.texto },
     detalhe: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave },
     icone: {
-      width: 36,
-      height: 36,
-      borderRadius: 8,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    iconeTexto: { fontFamily: fontes.textoForte, fontSize: 16, color: c.texto },
     corpo: {
       marginTop: 12,
       paddingTop: 12,

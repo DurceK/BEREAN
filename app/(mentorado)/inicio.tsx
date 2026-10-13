@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { Link, router, useFocusEffect } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
@@ -114,9 +115,8 @@ export default function MentoradoInicio() {
     });
   }
 
-  function resumo(aulas: AulaResumo[]) {
-    const feitas = aulas.filter((a) => progresso[a.id] === 'concluido').length;
-    return `${feitas} de ${aulas.length}`;
+  function feitas(aulas: AulaResumo[]) {
+    return aulas.filter((a) => progresso[a.id] === 'concluido').length;
   }
 
   const todasAsAulas = categorias.flatMap((c) => c.modulos.flatMap((m) => m.aulas));
@@ -168,9 +168,21 @@ export default function MentoradoInicio() {
                 accessibilityLabel={`${categoriaFechada ? 'Abrir' : 'Fechar'} ${categoria.nome}`}
               >
                 <Text style={styles.categoriaTitulo}>{categoria.nome}</Text>
-                <Text style={styles.resumo}>{resumo(aulasDaCategoria)}</Text>
-                <Text style={styles.chevron}>{categoriaFechada ? '▸' : '▾'}</Text>
+                <Text style={styles.resumo}>
+                  {feitas(aulasDaCategoria)} de {aulasDaCategoria.length}
+                </Text>
+                <Ionicons
+                  name={categoriaFechada ? 'chevron-forward' : 'chevron-down'}
+                  size={18}
+                  color={cores.destaque}
+                />
               </Pressable>
+              <Barra
+                fracao={
+                  aulasDaCategoria.length ? feitas(aulasDaCategoria) / aulasDaCategoria.length : 0
+                }
+                estilos={styles}
+              />
 
               {!categoriaFechada &&
                 categoria.modulos.map((modulo) => {
@@ -184,9 +196,15 @@ export default function MentoradoInicio() {
                         accessibilityState={{ expanded: !moduloFechado }}
                         accessibilityLabel={`${moduloFechado ? 'Abrir' : 'Fechar'} ${modulo.nome}`}
                       >
-                        <Text style={styles.chevronPequeno}>{moduloFechado ? '▸' : '▾'}</Text>
+                        <Ionicons
+                          name={moduloFechado ? 'chevron-forward' : 'chevron-down'}
+                          size={15}
+                          color={cores.textoSuave}
+                        />
                         <Text style={styles.moduloTitulo}>{modulo.nome}</Text>
-                        <Text style={styles.resumo}>{resumo(modulo.aulas)}</Text>
+                        <Text style={styles.resumo}>
+                          {feitas(modulo.aulas)} de {modulo.aulas.length}
+                        </Text>
                       </Pressable>
 
                       {!moduloFechado &&
@@ -194,15 +212,40 @@ export default function MentoradoInicio() {
                           const status = progresso[aula.id];
                           return (
                             <Link key={aula.id} href={`/(mentorado)/assistir/${aula.id}`} asChild>
-                              <Pressable style={styles.aula}>
-                                <Text style={styles.aulaTitulo}>{aula.titulo}</Text>
-                                {status === 'concluido' && (
-                                  <Text style={styles.selo}>✓ Concluída</Text>
-                                )}
-                                {status === 'em_andamento' && (
-                                  <Text style={styles.seloSuave}>Em andamento</Text>
-                                )}
-                                <Text style={styles.seta}>›</Text>
+                              <Pressable
+                                style={styles.aula}
+                                accessibilityLabel={`${aula.titulo}: ${
+                                  status === 'concluido'
+                                    ? 'concluída'
+                                    : status === 'em_andamento'
+                                      ? 'em andamento'
+                                      : 'não iniciada'
+                                }`}
+                              >
+                                <Ionicons
+                                  name={
+                                    status === 'concluido'
+                                      ? 'checkmark-circle'
+                                      : status === 'em_andamento'
+                                        ? 'time-outline'
+                                        : 'ellipse-outline'
+                                  }
+                                  size={22}
+                                  color={status ? cores.destaque : cores.textoSuave}
+                                />
+                                <Text
+                                  style={[
+                                    styles.aulaTitulo,
+                                    status === 'concluido' && styles.aulaConcluida,
+                                  ]}
+                                >
+                                  {aula.titulo}
+                                </Text>
+                                <Ionicons
+                                  name="chevron-forward"
+                                  size={18}
+                                  color={cores.textoSuave}
+                                />
                               </Pressable>
                             </Link>
                           );
@@ -215,6 +258,14 @@ export default function MentoradoInicio() {
         })}
       </View>
     </ScrollView>
+  );
+}
+
+function Barra({ fracao, estilos }: { fracao: number; estilos: ReturnType<typeof criarEstilos> }) {
+  return (
+    <View style={estilos.barra}>
+      <View style={[estilos.barraCheia, { width: `${Math.round(fracao * 100)}%` }]} />
+    </View>
   );
 }
 
@@ -237,13 +288,18 @@ const criarEstilos = (c: Cores) =>
     categoria: { marginBottom: 24 },
     categoriaCabecalho: {
       flexDirection: 'row',
-      alignItems: 'baseline',
+      alignItems: 'center',
       gap: 12,
       paddingBottom: 8,
-      marginBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: c.destaque,
     },
+    barra: {
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: c.borda,
+      overflow: 'hidden',
+      marginBottom: 16,
+    },
+    barraCheia: { height: '100%', backgroundColor: c.destaque },
     categoriaTitulo: {
       flex: 1,
       minWidth: 0,
@@ -257,12 +313,6 @@ const criarEstilos = (c: Cores) =>
       color: c.textoSuave,
       fontVariant: ['tabular-nums'],
     },
-    chevron: {
-      fontSize: 16,
-      color: c.destaque,
-      width: 16,
-      textAlign: 'center',
-    },
     modulo: { marginBottom: 12 },
     moduloCabecalho: {
       flexDirection: 'row',
@@ -270,12 +320,6 @@ const criarEstilos = (c: Cores) =>
       gap: 8,
       paddingVertical: 6,
       marginBottom: 4,
-    },
-    chevronPequeno: {
-      fontSize: 13,
-      color: c.textoSuave,
-      width: 14,
-      textAlign: 'center',
     },
     moduloTitulo: {
       flex: 1,
@@ -286,10 +330,11 @@ const criarEstilos = (c: Cores) =>
     aula: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 12,
       backgroundColor: c.superficie,
-      borderRadius: 8,
-      padding: 14,
+      borderRadius: 12,
+      paddingVertical: 14,
+      paddingHorizontal: 14,
       marginBottom: 8,
       borderWidth: 1,
       borderColor: c.borda,
@@ -300,11 +345,5 @@ const criarEstilos = (c: Cores) =>
       fontFamily: fontes.textoMedio,
       color: c.texto,
     },
-    selo: { fontFamily: fontes.textoForte, fontSize: 12, color: c.destaque },
-    seloSuave: {
-      fontFamily: fontes.textoMedio,
-      fontSize: 12,
-      color: c.textoSuave,
-    },
-    seta: { fontFamily: fontes.textoForte, fontSize: 20, color: c.textoSuave },
+    aulaConcluida: { color: c.textoSuave },
   });

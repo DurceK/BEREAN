@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Link, router, useLocalSearchParams } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -453,7 +454,7 @@ export default function ConteudoAula() {
               onPress={() => abrirEdicao(midia)}
               accessibilityLabel="Editar"
             >
-              <Text style={styles.acaoTexto}>✎</Text>
+              <Ionicons name="create-outline" size={18} color={cores.texto} />
             </Pressable>
             <Pressable
               style={[styles.acao, indice === 0 && styles.acaoDesabilitada]}
@@ -461,7 +462,7 @@ export default function ConteudoAula() {
               onPress={() => moverMidia(indice, -1)}
               accessibilityLabel="Subir"
             >
-              <Text style={styles.acaoTexto}>↑</Text>
+              <Ionicons name="arrow-up" size={18} color={cores.texto} />
             </Pressable>
             <Pressable
               style={[styles.acao, indice === midias.length - 1 && styles.acaoDesabilitada]}
@@ -469,14 +470,14 @@ export default function ConteudoAula() {
               onPress={() => moverMidia(indice, 1)}
               accessibilityLabel="Descer"
             >
-              <Text style={styles.acaoTexto}>↓</Text>
+              <Ionicons name="arrow-down" size={18} color={cores.texto} />
             </Pressable>
             <Pressable
               style={styles.acao}
               onPress={() => setMidiaParaRemover(midia)}
               accessibilityLabel="Remover"
             >
-              <Text style={[styles.acaoTexto, { color: cores.erro }]}>✕</Text>
+              <Ionicons name="close" size={18} color={cores.erro} />
             </Pressable>
           </View>
         </View>
@@ -797,7 +798,6 @@ const criarEstilos = (c: Cores) =>
       justifyContent: 'center',
     },
     acaoDesabilitada: { opacity: 0.3 },
-    acaoTexto: { fontFamily: fontes.textoForte, color: c.texto, fontSize: 16 },
     modalAviso: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20, marginBottom: 16 },
     itemTexto: { fontFamily: fontes.textoForte, color: c.texto },
     itemTipo: { fontFamily: fontes.texto, fontSize: 12, color: c.destaque, marginTop: 2 },

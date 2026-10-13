@@ -64,7 +64,11 @@ export function CabecalhoPerfil({ area, papel, estatisticas, botao }: Props) {
 
 const criarEstilos = (c: Cores) =>
   StyleSheet.create({
-    faixa: { backgroundColor: c.faixa, paddingBottom: TAMANHO_FOTO / 2 + 16, paddingHorizontal: 24 },
+    faixa: {
+      backgroundColor: c.faixa,
+      paddingBottom: TAMANHO_FOTO / 2 + 16,
+      paddingHorizontal: 24,
+    },
     faixaConteudo: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -82,7 +86,12 @@ const criarEstilos = (c: Cores) =>
     },
     sair: { fontFamily: fontes.textoMedio, fontSize: 14, color: c.sobreFaixa, opacity: 0.85 },
     corpo: { alignItems: 'center', paddingHorizontal: 24 },
-    foto: { marginTop: -TAMANHO_FOTO / 2, padding: 4, borderRadius: TAMANHO_FOTO, backgroundColor: c.fundo },
+    foto: {
+      marginTop: -TAMANHO_FOTO / 2,
+      padding: 4,
+      borderRadius: TAMANHO_FOTO,
+      backgroundColor: c.fundo,
+    },
     erro: { fontFamily: fontes.texto, color: c.erro, marginTop: 8, textAlign: 'center' },
     nome: {
       fontFamily: fontes.titulo,
@@ -95,19 +104,34 @@ const criarEstilos = (c: Cores) =>
     numeros: {
       flexDirection: 'row',
       justifyContent: 'center',
-      gap: 40,
+      gap: 10,
       marginTop: 20,
       width: '100%',
       maxWidth: 420,
     },
-    numero: { alignItems: 'center', minWidth: 64 },
+    numero: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 6,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.borda,
+      backgroundColor: c.superficie,
+    },
     valor: {
       fontFamily: fontes.tituloLeve,
-      fontSize: 22,
+      fontSize: 24,
       color: c.destaque,
       fontVariant: ['tabular-nums'],
     },
-    rotulo: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, marginTop: 2 },
+    rotulo: {
+      fontFamily: fontes.textoMedio,
+      fontSize: 11,
+      color: c.textoSuave,
+      marginTop: 2,
+      textAlign: 'center',
+    },
     botao: {
       marginTop: 20,
       backgroundColor: c.primaria,

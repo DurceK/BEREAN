@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { fontes, useEstilos, type Cores } from '../../lib/tema';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 
 export const VELOCIDADES = [0.75, 1, 1.25, 1.5];
 
@@ -32,6 +33,7 @@ export function PlayerAudio({
   posicaoInicial = 0,
   onProgresso,
 }: Props) {
+  const { cores } = useTema();
   const estilos = useEstilos(criarEstilos);
   const player = useAudioPlayer(url, { updateInterval: 250 });
   const status = useAudioPlayerStatus(player);
@@ -149,7 +151,11 @@ export function PlayerAudio({
           onPress={alternar}
           accessibilityLabel={status.playing ? 'Pausar' : 'Tocar'}
         >
-          <Text style={estilos.playTexto}>{status.playing ? '❚❚' : '▶'}</Text>
+          <Ionicons
+            name={status.playing ? 'pause' : 'play'}
+            size={24}
+            color={cores.sobrePrimaria}
+          />
         </Pressable>
         <Pressable
           style={estilos.pulo}
@@ -207,7 +213,6 @@ export const criarEstilos = (c: Cores) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    playTexto: { color: c.sobrePrimaria, fontSize: 20 },
     desabilitado: { opacity: 0.4 },
     velocidades: { flexDirection: 'row', justifyContent: 'center', gap: 8, flexWrap: 'wrap' },
     chip: {
