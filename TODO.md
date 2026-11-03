@@ -45,6 +45,13 @@
 
 - [x] **Atualizar pacotes do Expo** (SDK 57: expo 57.0.11 → 57.0.27 e demais pacotes)
 
+- [x] **Ver onde o aluno errou, em detalhe** (pedido de 02/11/2026; feito: "Ver respostas" em cada aula da ficha do aluno). Hoje a ficha do aluno mostra só "X de Y acertos" por aula. O mentor deve ver, pergunta por pergunta, o que o aluno respondeu (texto digitado, alternativa escolhida, frase montada) ao lado da resposta certa. O banco já guarda isso da 1ª tentativa (`respostas.texto` e `respostas.alternativa_id`); falta a tela.
+
+- [ ] **Página de relatórios para o mentor** (pedido de 02/11/2026; tela Relatórios, botão na tela inicial do mentor)
+  - [x] 1º relatório: resumo por aluno (aulas concluídas, em andamento, última atividade, respostas e acertos), o mesmo da consulta SQL de 02/11/2026
+  - [x] Erros recentes: os últimos 15 erros da turma (aluno, aula, pergunta, resposta do aluno e a certa)
+  - [ ] Outras ideias para avaliar: perguntas que mais derrubam a turma, aulas em que os alunos param, alunos sem atividade há X dias
+
 - [ ] **Revisar alertas de segurança do npm** (`npm audit` aponta 32, sendo 1 crítico). Avaliar quais afetam o app de verdade antes de rodar `npm audit fix`, que pode quebrar dependências.
 
 ## Caminho até vender (avaliação de 12/10/2026)

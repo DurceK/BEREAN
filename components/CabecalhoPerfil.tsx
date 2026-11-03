@@ -14,10 +14,11 @@ type Props = {
   papel: string; // texto abaixo do nome (ex: "Aluna")
   estatisticas: Estatistica[];
   botao?: { texto: string; onPress: () => void };
+  botaoSecundario?: { texto: string; onPress: () => void }; // ao lado do principal, só com contorno
 };
 
 // Topo das telas iniciais: faixa colorida, foto grande no centro, nome, números e um botão.
-export function CabecalhoPerfil({ area, papel, estatisticas, botao }: Props) {
+export function CabecalhoPerfil({ area, papel, estatisticas, botao, botaoSecundario }: Props) {
   const { usuario, sair } = useAuth();
   const estilos = useEstilos(criarEstilos);
   const insets = useSafeAreaInsets();
@@ -52,10 +53,24 @@ export function CabecalhoPerfil({ area, papel, estatisticas, botao }: Props) {
           ))}
         </View>
 
-        {botao && (
-          <Pressable style={estilos.botao} onPress={botao.onPress}>
-            <Text style={estilos.botaoTexto}>{botao.texto}</Text>
-          </Pressable>
+        {(botao || botaoSecundario) && (
+          <View style={estilos.botoes}>
+            {botao && (
+              <Pressable style={estilos.botao} onPress={botao.onPress}>
+                <Text style={estilos.botaoTexto}>{botao.texto}</Text>
+              </Pressable>
+            )}
+            {botaoSecundario && (
+              <Pressable
+                style={[estilos.botao, estilos.botaoSecundario]}
+                onPress={botaoSecundario.onPress}
+              >
+                <Text style={[estilos.botaoTexto, estilos.botaoSecundarioTexto]}>
+                  {botaoSecundario.texto}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         )}
       </View>
     </View>
@@ -132,12 +147,24 @@ const criarEstilos = (c: Cores) =>
       marginTop: 2,
       textAlign: 'center',
     },
-    botao: {
+    botoes: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      gap: 10,
       marginTop: 20,
+    },
+    botaoSecundario: {
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: c.destaque,
+    },
+    botaoSecundarioTexto: { color: c.destaque },
+    botao: {
       backgroundColor: c.primaria,
       borderRadius: 24,
       paddingVertical: 12,
-      paddingHorizontal: 32,
+      paddingHorizontal: 24,
     },
     botaoTexto: {
       fontFamily: fontes.textoForte,

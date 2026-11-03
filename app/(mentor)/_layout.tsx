@@ -17,6 +17,7 @@ export default function MentorLayout() {
       <Stack.Screen name="inicio" options={{ title: 'Início', headerShown: false }} />
       <Stack.Screen name="previa/[aulaId]" options={{ title: 'Pré-visualização' }} />
       <Stack.Screen name="alunos" options={{ title: 'Alunos' }} />
+      <Stack.Screen name="relatorios" options={{ title: 'Relatórios' }} />
       <Stack.Screen name="aluno/[alunoId]" options={{ title: 'Progresso do aluno' }} />
       <Stack.Screen name="aula/[aulaId]" options={{ title: 'Conteúdo' }} />
       <Stack.Screen name="exercicio/[midiaId]" options={{ title: 'Exercício' }} />

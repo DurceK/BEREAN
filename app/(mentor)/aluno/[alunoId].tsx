@@ -1,37 +1,19 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../lib/auth';
 import { fontes, useEstilos, useTema, type Cores } from '../../../lib/tema';
 import { FotoPessoa } from '../../../components/FotoPessoa';
+import { formatarData, haQuanto } from '../../../lib/datas';
+import { respostasDoAluno, type RespostaDetalhada } from '../../../lib/relatorios';
 
 type Aula = { id: string; titulo: string; ordem: number };
 type Modulo = { id: string; nome: string; ordem: number; aulas: Aula[] };
 type Categoria = { id: string; nome: string; modulos: Modulo[] };
 type Progresso = { status: 'em_andamento' | 'concluido'; atualizado_em: string };
 type Aluno = { nome: string; matricula: string; avatar_url: string | null };
-
-function formatarData(iso: string) {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  });
-}
-
-function haQuanto(iso: string) {
-  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
-  if (dias <= 0) return 'hoje';
-  if (dias === 1) return 'ontem';
-  return `há ${dias} dias`;
-}
-
-type ExerciciosDaAula = {
-  acertos: number;
-  respondidas: number;
-  livres: { enunciado: string; texto: string }[]; // respostas livres, para o mentor ler
-};
 
 function porcentagem(parte: number, total: number) {
   return total === 0 ? 0 : Math.round((parte / total) * 100);
@@ -46,8 +28,10 @@ export default function FichaAluno() {
   const [aluno, setAluno] = useState<Aluno | null>(null);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [progresso, setProgresso] = useState<Record<string, Progresso>>({});
-  // Acertos nos exercícios de cada aula (1ª tentativa) e as respostas livres, para ler
-  const [exercicios, setExercicios] = useState<Record<string, ExerciciosDaAula>>({});
+  // Respostas (1ª tentativa) de cada aula, pergunta por pergunta
+  const [respostas, setRespostas] = useState<Record<string, RespostaDetalhada[]>>({});
+  // Aulas em que o mentor abriu a lista de respostas
+  const [abertas, setAbertas] = useState<Record<string, boolean>>({});
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -74,11 +58,7 @@ export default function FichaAluno() {
             .from('progresso')
             .select('aula_id, status, atualizado_em')
             .eq('mentorado_id', alunoId),
-          // 1ª tentativa de cada pergunta respondida, com a aula a que pertence
-          supabase
-            .from('respostas')
-            .select('correta, texto, questoes!inner(tipo, enunciado, midias!inner(aula_id))')
-            .eq('mentorado_id', alunoId),
+          respostasDoAluno(alunoId).catch(() => null),
         ]);
         if (cancelado) return;
 
@@ -104,29 +84,10 @@ export default function FichaAluno() {
           mapa[linha.aula_id] = { status: linha.status, atualizado_em: linha.atualizado_em };
         }
 
-        const porAula: Record<string, ExerciciosDaAula> = {};
-        for (const linha of resRespostas.data ?? []) {
-          const questao = linha.questoes as unknown as {
-            tipo: string;
-            enunciado: string;
-            midias: { aula_id: string };
-          } | null;
-          const aulaId = questao?.midias?.aula_id;
-          if (!aulaId) continue;
-          const atual = porAula[aulaId] ?? { acertos: 0, respondidas: 0, livres: [] };
-          if (questao.tipo === 'livre') {
-            atual.livres.push({ enunciado: questao.enunciado, texto: linha.texto ?? '' });
-          } else {
-            atual.respondidas += 1;
-            if (linha.correta) atual.acertos += 1;
-          }
-          porAula[aulaId] = atual;
-        }
-
         setAluno(resAluno.data);
         setCategorias(lista);
         setProgresso(mapa);
-        setExercicios(porAula);
+        setRespostas(resRespostas ?? {});
         setErro(null);
         setCarregando(false);
       }
@@ -233,18 +194,16 @@ export default function FichaAluno() {
                             ? `Começou em ${formatarData(p.atualizado_em)}`
                             : 'Não iniciada'}
                       </Text>
-                      {!!exercicios[aula.id]?.respondidas && (
-                        <Text style={estilos.exercicios}>
-                          Exercícios: {exercicios[aula.id].acertos} de{' '}
-                          {exercicios[aula.id].respondidas} acertos (1ª tentativa)
-                        </Text>
+                      {!!respostas[aula.id]?.length && (
+                        <RespostasDaAula
+                          lista={respostas[aula.id]}
+                          aberta={!!abertas[aula.id]}
+                          onAlternar={() =>
+                            setAbertas((atual) => ({ ...atual, [aula.id]: !atual[aula.id] }))
+                          }
+                          estilos={estilos}
+                        />
                       )}
-                      {exercicios[aula.id]?.livres.map((livre, i) => (
-                        <View key={i} style={estilos.livre}>
-                          <Text style={estilos.livreEnunciado}>{livre.enunciado}</Text>
-                          <Text style={estilos.livreTexto}>{livre.texto}</Text>
-                        </View>
-                      ))}
                     </View>
                   );
                 })}
@@ -262,6 +221,81 @@ export default function FichaAluno() {
 }
 
 type Estilos = ReturnType<typeof criarEstilos>;
+
+// Resumo dos exercícios da aula; ao tocar, mostra cada pergunta com a resposta do aluno
+function RespostasDaAula({
+  lista,
+  aberta,
+  onAlternar,
+  estilos,
+}: {
+  lista: RespostaDetalhada[];
+  aberta: boolean;
+  onAlternar: () => void;
+  estilos: Estilos;
+}) {
+  const { cores } = useTema();
+  const corrigidas = lista.filter((r) => r.correta !== null);
+  const acertos = corrigidas.filter((r) => r.correta).length;
+  const livres = lista.length - corrigidas.length;
+  const partes = [
+    corrigidas.length ? `${acertos} de ${corrigidas.length} acertos` : null,
+    livres ? `${livres} ${livres === 1 ? 'resposta livre' : 'respostas livres'}` : null,
+  ].filter(Boolean);
+
+  return (
+    <View style={estilos.respostas}>
+      <Pressable
+        style={estilos.respostasCabecalho}
+        onPress={onAlternar}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: aberta }}
+      >
+        <Text style={estilos.exercicios}>Exercícios: {partes.join(' · ')} (1ª tentativa)</Text>
+        <Text style={estilos.verRespostas}>{aberta ? 'Ocultar' : 'Ver respostas'}</Text>
+        <Ionicons name={aberta ? 'chevron-up' : 'chevron-down'} size={14} color={cores.destaque} />
+      </Pressable>
+
+      {aberta &&
+        lista.map((r) => (
+          <View key={r.questaoId} style={estilos.resposta}>
+            <Ionicons
+              name={
+                r.correta === null
+                  ? 'create-outline'
+                  : r.correta
+                    ? 'checkmark-circle'
+                    : 'close-circle'
+              }
+              size={18}
+              color={r.correta === false ? cores.erro : cores.destaque}
+            />
+            <View style={estilos.respostaConteudo}>
+              <Text style={estilos.respostaEnunciado}>{r.enunciado}</Text>
+              {r.resposta !== null ? (
+                <Text style={estilos.respostaTexto}>
+                  <Text style={estilos.respostaRotulo}>Aluno: </Text>
+                  {r.resposta || '(em branco)'}
+                </Text>
+              ) : (
+                r.tipo === 'ligar' && (
+                  <Text style={estilos.respostaTexto}>
+                    {r.correta ? 'Ligou todos os pares certo.' : 'Errou pelo menos um par.'}
+                  </Text>
+                )
+              )}
+              {r.correta === false && !!r.certa && (
+                <Text style={estilos.respostaTexto}>
+                  <Text style={estilos.respostaRotulo}>Certa: </Text>
+                  {r.certa}
+                </Text>
+              )}
+            </View>
+          </View>
+        ))}
+    </View>
+  );
+}
 
 function Barra({ fracao, estilos }: { fracao: number; estilos: Estilos }) {
   return (
@@ -353,21 +387,19 @@ const criarEstilos = (c: Cores) =>
     aulaTitulo: { flex: 1, minWidth: 140, fontFamily: fontes.textoMedio, color: c.texto },
     aulaStatus: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave },
     aulaStatusConcluido: { color: c.destaque },
-    exercicios: {
-      width: '100%',
-      fontFamily: fontes.textoMedio,
-      fontSize: 12,
-      color: c.texto,
-      paddingLeft: 20,
+    respostas: { width: '100%', paddingLeft: 20, gap: 6 },
+    respostasCabecalho: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+    verRespostas: { fontFamily: fontes.textoForte, fontSize: 12, color: c.destaque },
+    resposta: {
+      flexDirection: 'row',
+      gap: 8,
+      paddingVertical: 6,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borda,
     },
-    livre: {
-      width: '100%',
-      marginLeft: 20,
-      paddingLeft: 10,
-      borderLeftWidth: 2,
-      borderLeftColor: c.destaque,
-      gap: 2,
-    },
-    livreEnunciado: { fontFamily: fontes.textoMedio, fontSize: 12, color: c.textoSuave },
-    livreTexto: { fontFamily: fontes.texto, fontSize: 13, color: c.texto, lineHeight: 19 },
+    respostaConteudo: { flex: 1, minWidth: 0, gap: 2 },
+    respostaEnunciado: { fontFamily: fontes.textoMedio, fontSize: 13, color: c.texto },
+    respostaTexto: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave, lineHeight: 19 },
+    respostaRotulo: { fontFamily: fontes.textoForte, color: c.texto },
+    exercicios: { fontFamily: fontes.textoMedio, fontSize: 12, color: c.texto },
   });

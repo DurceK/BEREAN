@@ -188,6 +188,10 @@ export default function MentorInicio() {
           { valor: totalAlunos, rotulo: 'Alunos' },
         ]}
         botao={{ texto: 'Meus alunos', onPress: () => router.push('/(mentor)/alunos') }}
+        botaoSecundario={{
+          texto: 'Relatórios',
+          onPress: () => router.push('/(mentor)/relatorios'),
+        }}
       />
 
       <View style={estilos.container}>
