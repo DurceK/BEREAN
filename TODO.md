@@ -78,5 +78,5 @@ O produto está pronto para piloto; o que falta para vender é operacional: loja
     - Plano baixo custo para os primeiros clientes fundadores (começando pelo Danilo): R$ 100/mês, sem implantação, no Supabase free, por 1 ano ou até precisar do plano Pro do banco (o que vier primeiro)
     - No contrato: preço de fundador válido por 12 meses; limite de alunos ativos (ex: 50); suporte = dúvidas e correção de erros; dados são do cliente; em troca, depoimento e permissão para citá-lo
     - Avaliar começar só com Android + versão web para iPhone (evita a conta Apple de US$ 99/ano para o professor)
-    - Supabase free: criar "despertador" diário (evita a pausa de 7 dias) e backup semanal automático; limite de 2 projetos grátis por conta (Camila + Danilo)
+    - Supabase free: "despertador" diário FEITO em 03/11/2026 (`.github/workflows/despertador.yml`, segredos no GitHub); backup semanal automático ainda pendente (precisa de repositório privado); limite de 2 projetos grátis por conta (Camila + Danilo)
     - Faixas para clientes maiores (referência): implantação R$ 1.500–2.500; R$ 297 / 497 / 797 por até 50 / 200 / 500 alunos, já no Supabase Pro

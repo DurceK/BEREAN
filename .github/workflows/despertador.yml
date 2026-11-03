@@ -1,0 +1,30 @@
+# Despertador do banco: o Supabase gratuito pausa o projeto depois de 7 dias sem nenhum
+# acesso (ex: férias da turma). Uma vez por dia este robô faz uma consulta leve ao banco
+# para mantê-lo acordado. Não lê nem guarda dados de alunos: usa só a chave pública, e as
+# regras de segurança devolvem uma lista vazia.
+#
+# Segredos necessários (Settings > Secrets and variables > Actions):
+#   SUPABASE_URL              endereço do projeto (https://xxxx.supabase.co)
+#   SUPABASE_PUBLISHABLE_KEY  a chave pública (a mesma do app)
+name: Despertador do banco
+
+on:
+  schedule:
+    - cron: '0 11 * * *' # todo dia às 8h de Brasília
+  workflow_dispatch: # botão "Run workflow" para testar na hora
+
+jobs:
+  acordar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Consulta leve ao banco
+        env:
+          URL: ${{ secrets.SUPABASE_URL }}
+          CHAVE: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$URL/rest/v1/categorias?select=id&limit=1" \
+            -H "apikey: $CHAVE" -H "Authorization: Bearer $CHAVE")
+          echo "Resposta do banco: $status"
+          test "$status" -ge 200 -a "$status" -lt 300
