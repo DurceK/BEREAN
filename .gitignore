@@ -43,3 +43,7 @@ yarn-error.*
 
 # conteúdo dos cursos de cada cliente (material deles, não vai para o GitHub público)
 clientes/*/conteudo/
+
+# apps gerados (APK/AAB): ficam no Drive, não no GitHub
+*.apk
+*.aab

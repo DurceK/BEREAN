@@ -4,7 +4,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 
-export const VELOCIDADES = [0.75, 1, 1.25, 1.5];
+export const VELOCIDADES = [0.5, 0.75, 1, 1.25, 1.5];
 
 type Props = {
   id: string;

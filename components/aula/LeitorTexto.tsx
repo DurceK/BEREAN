@@ -73,6 +73,10 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
   const [velocidade, setVelocidade] = useState(1);
   // Frases já ouvidas uma a uma: ouvir todas também conta como texto visto
   const ouvidas = useRef(new Set<number>());
+  // Cada leitura ganha um número; avisos de uma leitura antiga (já parada) são ignorados
+  const leituraAtual = useRef(0);
+  // O que fazer quando a leitura em andamento chegar ao fim (usado ao trocar a velocidade)
+  const aoTerminarAtual = useRef<() => void>(() => {});
 
   const linhas = separarLinhas(texto);
   const frases = linhas?.map((l) => l.frase) ?? null;
@@ -90,28 +94,59 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
     setLinhaSozinha(-1);
   }
 
-  async function falar(conteudo: string, linha: number, aoTerminar: () => void) {
+  // inicio: a partir de qual letra do texto a voz começa (para recomeçar de onde estava)
+  async function falar(
+    conteudo: string,
+    linha: number,
+    aoTerminar: () => void,
+    rate = velocidade,
+    inicio = 0
+  ) {
     onAtivar(id);
+    const esta = ++leituraAtual.current;
+    aoTerminarAtual.current = aoTerminar;
     await Speech.stop();
     setFalando(true);
-    setPosicao(-1);
+    setPosicao(inicio > 0 ? inicio : -1);
     setLinhaSozinha(linha);
-    Speech.speak(conteudo, {
+    const valendo = () => esta === leituraAtual.current;
+    Speech.speak(conteudo.slice(inicio), {
       language: idioma ?? 'pt-BR',
-      rate: velocidade,
-      onBoundary: ((evento: { charIndex: number }) =>
-        setPosicao(evento.charIndex)) as Speech.SpeechOptions['onBoundary'],
+      rate,
+      onBoundary: ((evento: { charIndex: number }) => {
+        if (valendo()) setPosicao(inicio + evento.charIndex);
+      }) as Speech.SpeechOptions['onBoundary'],
       // onDone: leu até o fim; onStopped: alguém parou no meio (não conta)
       onDone: () => {
+        if (!valendo()) return;
         terminar();
         aoTerminar();
       },
-      onStopped: terminar,
+      onStopped: () => {
+        if (valendo()) terminar();
+      },
     });
+  }
+
+  // Troca a velocidade; se estiver lendo, recomeça na hora a partir da frase/palavra atual
+  function mudarVelocidade(nova: number) {
+    setVelocidade(nova);
+    if (!falando) return;
+    if (linhaSozinha >= 0) {
+      falar(frases![linhaSozinha], linhaSozinha, aoTerminarAtual.current, nova);
+      return;
+    }
+    let inicio = Math.max(0, posicao);
+    if (frases) {
+      const linha = Math.max(0, linhaDaPosicao(frases, posicao));
+      inicio = frases.slice(0, linha).reduce((soma, f) => soma + f.length + 1, 0);
+    }
+    falar(textoFalado, -1, aoTerminarAtual.current, nova, inicio);
   }
 
   async function alternarTudo() {
     if (falando) {
+      leituraAtual.current++;
       await Speech.stop();
       terminar();
       return;
@@ -121,6 +156,7 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
 
   async function ouvirLinha(i: number) {
     if (falando && linhaSozinha === i) {
+      leituraAtual.current++;
       await Speech.stop();
       terminar();
       return;
@@ -155,7 +191,7 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
           <Pressable
             key={valor}
             style={[estilosPlayer.chip, velocidade === valor && estilosPlayer.chipAtivo]}
-            onPress={() => setVelocidade(valor)}
+            onPress={() => mudarVelocidade(valor)}
           >
             <Text
               style={[
@@ -168,9 +204,6 @@ export function LeitorTexto({ id, texto, idioma, ativo, onAtivar, onTerminar }: 
           </Pressable>
         ))}
       </View>
-      {falando && (
-        <Text style={estilos.nota}>A velocidade nova vale a partir da próxima leitura.</Text>
-      )}
     </View>
   );
 
@@ -240,7 +273,6 @@ const criarEstilos = (c: Cores) =>
     texto: { fontFamily: fontes.texto, fontSize: 17, lineHeight: 28, color: c.texto },
     palavra: { borderRadius: 3 },
     controles: { alignItems: 'center', gap: 12 },
-    nota: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, textAlign: 'center' },
     lista: {},
     linha: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
     linhaSeparada: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.borda },
