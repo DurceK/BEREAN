@@ -1,5 +1,6 @@
 // Função no servidor do Supabase para operações que exigem a chave de administrador:
-// cadastrar mentorado (login + cadastro + inscrições) e redefinir a senha de um aluno.
+// cadastrar mentorado (login + cadastro + inscrições), redefinir a senha de um aluno e
+// excluir um aluno.
 // A chave de administrador só existe aqui no servidor, nunca no app.
 //
 // Publicar: npx.cmd supabase functions deploy admin-usuarios --project-ref dfjxblptvffhjykaowmk --no-verify-jwt --use-api
@@ -69,6 +70,7 @@ Deno.serve(async (req) => {
 
   if (corpo.acao === 'criar_mentorado') return criarMentorado(mentorId, corpo);
   if (corpo.acao === 'redefinir_senha') return redefinirSenha(mentorId, corpo);
+  if (corpo.acao === 'excluir_mentorado') return excluirMentorado(mentorId, corpo);
   return resposta({ erro: 'Ação desconhecida.' }, 400);
 });
 
@@ -180,4 +182,62 @@ async function redefinirSenha(mentorId: string, corpo: Record<string, unknown>) 
 
   await admin.from('usuarios').update({ precisa_trocar_senha: true }).eq('id', alunoId);
   return resposta({ ok: true });
+}
+
+// Exclui o aluno de vez: login, cadastro, inscrições, progresso, respostas, aceites e foto.
+// Para evitar engano, o app manda a matrícula digitada pelo mentor como confirmação, e ela
+// é conferida aqui de novo. Se o aluno também estiver em cursos de OUTRO mentor, ele só sai
+// dos cursos deste mentor (a conta continua, para não apagar o que é do outro mentor).
+async function excluirMentorado(mentorId: string, corpo: Record<string, unknown>) {
+  const alunoId = String(corpo.usuario_id ?? '');
+  const confirmacao = String(corpo.confirmacao ?? '')
+    .trim()
+    .toLowerCase();
+  if (!alunoId) return resposta({ erro: 'Aluno não informado.' }, 400);
+
+  const { data: aluno } = await admin
+    .from('usuarios')
+    .select('matricula, papel')
+    .eq('id', alunoId)
+    .maybeSingle();
+  if (!aluno || aluno.papel !== 'mentorado') {
+    return resposta({ erro: 'Aluno não encontrado.' }, 404);
+  }
+  if (confirmacao !== aluno.matricula.toLowerCase()) {
+    return resposta({ erro: 'A matrícula digitada não confere. Nada foi excluído.' }, 400);
+  }
+
+  const { data: inscricoes } = await admin
+    .from('inscricoes')
+    .select('id, categorias!inner(mentor_id)')
+    .eq('mentorado_id', alunoId);
+  const minhas = (inscricoes ?? []).filter(
+    (i) => (i.categorias as unknown as { mentor_id: string }).mentor_id === mentorId
+  );
+  if (minhas.length === 0) {
+    return resposta({ erro: 'Este aluno não está inscrito em nenhum curso seu.' }, 403);
+  }
+
+  if (minhas.length < (inscricoes ?? []).length) {
+    const { error } = await admin
+      .from('inscricoes')
+      .delete()
+      .in(
+        'id',
+        minhas.map((i) => i.id)
+      );
+    if (error) return resposta({ erro: 'Não foi possível tirar o aluno dos seus cursos.' }, 500);
+    return resposta({ ok: true, parcial: true });
+  }
+
+  // Foto de perfil (fica no Storage, fora das tabelas)
+  const { data: fotos } = await admin.storage.from('avatares').list(alunoId);
+  if (fotos && fotos.length > 0) {
+    await admin.storage.from('avatares').remove(fotos.map((f) => `${alunoId}/${f.name}`));
+  }
+
+  // Apagar o login apaga o cadastro e tudo que depende dele (on delete cascade)
+  const { error: erroExcluir } = await admin.auth.admin.deleteUser(alunoId);
+  if (erroExcluir) return resposta({ erro: 'Não foi possível excluir o aluno.' }, 500);
+  return resposta({ ok: true, parcial: false });
 }

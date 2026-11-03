@@ -1,11 +1,13 @@
 import { supabase } from './supabase';
 
-type Resultado = { erro: string | null };
+type Resultado = { erro: string | null; dados?: Record<string, unknown> | null };
 
 // Chama a função "admin-usuarios" no servidor do Supabase (ver supabase/functions/admin-usuarios).
 async function chamar(acao: string, dados: Record<string, unknown>): Promise<Resultado> {
-  const { error } = await supabase.functions.invoke('admin-usuarios', { body: { acao, ...dados } });
-  if (!error) return { erro: null };
+  const { data, error } = await supabase.functions.invoke('admin-usuarios', {
+    body: { acao, ...dados },
+  });
+  if (!error) return { erro: null, dados: data };
 
   // A função devolve { erro: "mensagem" }; quando não der pra ler, usa uma mensagem genérica
   let mensagem = 'Não foi possível concluir. Verifique a conexão e tente de novo.';
@@ -25,6 +27,11 @@ export function criarMentorado(dados: {
   categorias: string[];
 }) {
   return chamar('criar_mentorado', dados);
+}
+
+// confirmacao: a matrícula do aluno, digitada pelo mentor (o servidor confere de novo)
+export function excluirMentorado(usuarioId: string, confirmacao: string) {
+  return chamar('excluir_mentorado', { usuario_id: usuarioId, confirmacao });
 }
 
 export function redefinirSenha(usuarioId: string, senha: string) {

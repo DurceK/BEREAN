@@ -67,14 +67,18 @@ export function Avatar({
     const novoCaminho = `${usuario.id}/${Date.now()}.jpg`;
 
     setEnviando(true);
+    // Etapa em andamento, para a mensagem de erro dizer onde parou
+    let etapa = 'reduzir a imagem';
     try {
       // A foto aparece com no máximo 108 px: guarda só 256 px, comprimida (~20 KB)
       const reduzida = await otimizarImagem(foto.uri, foto.width, foto.height, FOTO_PERFIL);
+      etapa = 'enviar a foto';
       const { error: erroEnvio } = await supabase.storage
         .from(BUCKET)
         .upload(novoCaminho, await lerComoBytes(reduzida), { contentType: 'image/jpeg' });
       if (erroEnvio) throw erroEnvio;
 
+      etapa = 'salvar no cadastro';
       const { error: erroCadastro } = await supabase
         .from('usuarios')
         .update({ avatar_url: novoCaminho })
@@ -83,8 +87,10 @@ export function Avatar({
 
       if (caminho) await supabase.storage.from(BUCKET).remove([caminho]);
       definirAvatar(novoCaminho);
-    } catch {
-      onErro?.('Não foi possível trocar a foto. Verifique a conexão e tente de novo.');
+    } catch (e) {
+      const motivo =
+        e instanceof Error ? e.message : String((e as { message?: string })?.message ?? e);
+      onErro?.(`Não foi possível trocar a foto (ao ${etapa}: ${motivo}).`);
     } finally {
       setEnviando(false);
     }

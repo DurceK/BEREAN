@@ -12,7 +12,12 @@ import {
 import { Link, useFocusEffect } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
-import { criarMentorado, gerarSenhaProvisoria, redefinirSenha } from '../../lib/adminUsuarios';
+import {
+  criarMentorado,
+  excluirMentorado,
+  gerarSenhaProvisoria,
+  redefinirSenha,
+} from '../../lib/adminUsuarios';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 import { FotoPessoa } from '../../components/FotoPessoa';
 import { BotaoCopiar, copiar } from '../../components/BotaoCopiar';
@@ -38,6 +43,9 @@ type Janela =
   | { tipo: 'novo' }
   | { tipo: 'senha'; aluno: Aluno }
   | { tipo: 'entregar'; nome: string; matricula: string; senha: string }
+  // Exclusão em duas etapas: 1) avisa o que será apagado; 2) pede a matrícula digitada
+  | { tipo: 'excluir'; aluno: Aluno }
+  | { tipo: 'confirmarExclusao'; aluno: Aluno }
   | null;
 
 export default function Alunos() {
@@ -60,6 +68,8 @@ export default function Alunos() {
   const [copiouAcesso, setCopiouAcesso] = useState<'sim' | 'falhou' | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erroJanela, setErroJanela] = useState<string | null>(null);
+  const [matriculaDigitada, setMatriculaDigitada] = useState('');
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!usuario) return;
@@ -190,6 +200,24 @@ export default function Alunos() {
     }
   }
 
+  async function excluir(aluno: Aluno) {
+    setSalvando(true);
+    setErroJanela(null);
+    const { erro, dados } = await excluirMentorado(aluno.id, matriculaDigitada);
+    setSalvando(false);
+    if (erro) {
+      setErroJanela(erro);
+      return;
+    }
+    setJanela(null);
+    setAviso(
+      dados?.parcial
+        ? `${aluno.nome} também estuda com outro mentor: saiu só dos seus cursos.`
+        : `${aluno.nome} foi excluído.`
+    );
+    await carregar();
+  }
+
   async function alternarMenor(aluno: Aluno) {
     setErroLista(null);
     const { error } = await supabase.rpc('definir_menor_de_idade', {
@@ -246,6 +274,7 @@ export default function Alunos() {
         <Text style={estilos.aviso}>Crie um curso antes de cadastrar alunos.</Text>
       )}
       {erroLista && <Text style={estilos.erro}>{erroLista}</Text>}
+      {aviso && <Text style={estilos.aviso}>{aviso}</Text>}
       {carregando && <ActivityIndicator color={cores.primaria} />}
 
       {!carregando && alunos.length === 0 && categorias.length > 0 && (
@@ -319,6 +348,19 @@ export default function Alunos() {
                 : 'Termo de uso ainda não aceito'}
             </Text>
           </View>
+
+          <Pressable
+            style={estilos.excluir}
+            onPress={() => {
+              setErroJanela(null);
+              setAviso(null);
+              setJanela({ tipo: 'excluir', aluno });
+            }}
+            accessibilityLabel={`Excluir ${aluno.nome}`}
+          >
+            <Ionicons name="trash-outline" size={15} color={cores.erro} />
+            <Text style={[estilos.excluirTexto, { color: cores.erro }]}>Excluir aluno</Text>
+          </Pressable>
         </View>
       ))}
 
@@ -422,6 +464,81 @@ export default function Alunos() {
                         {salvando ? 'Cadastrando...' : 'Cadastrar'}
                       </Text>
                     </Pressable>
+                  </View>
+                </>
+              )}
+
+              {janela?.tipo === 'excluir' && (
+                <>
+                  <Text style={estilos.modalTitulo}>Excluir {janela.aluno.nome}?</Text>
+                  <Text style={estilos.texto}>
+                    Isto apaga para sempre o login, o cadastro, o progresso, as respostas dos
+                    exercícios, o aceite do termo e a foto deste aluno. Não dá para desfazer.
+                  </Text>
+                  <Text style={estilos.texto}>
+                    Se ele só vai dar um tempo, não exclua: basta não passar a nova senha.
+                  </Text>
+                  <View style={estilos.modalBotoes}>
+                    <Pressable onPress={() => setJanela(null)}>
+                      <Text style={estilos.confirmar}>Cancelar</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setMatriculaDigitada('');
+                        setErroJanela(null);
+                        setJanela({ tipo: 'confirmarExclusao', aluno: janela.aluno });
+                      }}
+                    >
+                      <Text style={[estilos.cancelar, { color: cores.erro }]}>
+                        Sim, quero excluir
+                      </Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+
+              {janela?.tipo === 'confirmarExclusao' && (
+                <>
+                  <Text style={estilos.modalTitulo}>Confirmação final</Text>
+                  <Text style={estilos.texto}>
+                    Para excluir {janela.aluno.nome}, digite a matrícula dele:{' '}
+                    <Text style={estilos.destaqueForte}>{janela.aluno.matricula}</Text>
+                  </Text>
+                  <TextInput
+                    style={estilos.input}
+                    value={matriculaDigitada}
+                    onChangeText={setMatriculaDigitada}
+                    placeholder="Matrícula"
+                    placeholderTextColor={cores.textoSuave}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="number-pad"
+                    autoFocus
+                  />
+                  {erroJanela && <Text style={estilos.erro}>{erroJanela}</Text>}
+                  <View style={estilos.modalBotoes}>
+                    <Pressable onPress={() => setJanela(null)}>
+                      <Text style={estilos.confirmar}>Cancelar</Text>
+                    </Pressable>
+                    {(() => {
+                      const confere =
+                        matriculaDigitada.trim().toLowerCase() ===
+                        janela.aluno.matricula.toLowerCase();
+                      return (
+                        <Pressable
+                          style={[
+                            estilos.botaoExcluir,
+                            (!confere || salvando) && estilos.desabilitado,
+                          ]}
+                          disabled={!confere || salvando}
+                          onPress={() => excluir(janela.aluno)}
+                        >
+                          <Text style={estilos.botaoExcluirTexto}>
+                            {salvando ? 'Excluindo...' : 'Excluir definitivamente'}
+                          </Text>
+                        </Pressable>
+                      );
+                    })()}
                   </View>
                 </>
               )}
@@ -608,6 +725,23 @@ const criarEstilos = (c: Cores) =>
       borderTopColor: c.borda,
       marginTop: 4,
     },
+    excluir: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      alignSelf: 'flex-end',
+      marginTop: 12,
+      paddingVertical: 4,
+    },
+    excluirTexto: { fontFamily: fontes.textoMedio, fontSize: 12 },
+    botaoExcluir: {
+      backgroundColor: c.erro,
+      borderRadius: 8,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+    },
+    botaoExcluirTexto: { fontFamily: fontes.textoForte, color: c.fundo },
+    destaqueForte: { fontFamily: fontes.textoForte, color: c.texto },
     termoTexto: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, marginTop: 12 },
     input: {
       fontFamily: fontes.texto,

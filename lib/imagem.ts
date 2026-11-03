@@ -15,9 +15,16 @@ export async function otimizarImagem(
   { ladoMaximo, qualidade }: { ladoMaximo: number; qualidade: number }
 ) {
   const contexto = ImageManipulator.manipulate(uri);
-  if (Math.max(largura, altura) > ladoMaximo) {
-    if (largura >= altura) contexto.resize({ width: ladoMaximo, height: null });
-    else contexto.resize({ width: null, height: ladoMaximo });
+  // As duas medidas são calculadas aqui: no navegador, deixar uma em branco (null) para a
+  // biblioteca calcular vira altura zero e dá erro. Sem as medidas da foto (alguns
+  // navegadores não informam), não reduz: só comprime.
+  const temMedidas = largura > 0 && altura > 0;
+  if (temMedidas && Math.max(largura, altura) > ladoMaximo) {
+    const escala = ladoMaximo / Math.max(largura, altura);
+    contexto.resize({
+      width: Math.max(1, Math.round(largura * escala)),
+      height: Math.max(1, Math.round(altura * escala)),
+    });
   }
   const imagem = await contexto.renderAsync();
   const resultado = await imagem.saveAsync({ format: SaveFormat.JPEG, compress: qualidade });
