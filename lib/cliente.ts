@@ -7,6 +7,7 @@ import type { Cores } from './tema';
 type Cliente = {
   nome: string;
   dominioLogin: string; // o login usa o e-mail fictício matricula@dominioLogin
+  site?: string; // endereço do app na internet (vai na mensagem de acesso para o aluno)
   enfeite?: string; // detalhe opcional mostrado acima do nome na tela de login
   cores: { claro: Cores; escuro: Cores };
 };

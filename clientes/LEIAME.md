@@ -54,7 +54,7 @@ Os papéis são `titulo`, `tituloLeve`, `texto`, `textoMedio` e `textoForte`, e 
 3. Crie o banco do cliente:
    ```
    npx.cmd supabase link --project-ref <id do projeto do cliente>
-   npx.cmd supabase db push
+   npx.cmd supabase db push --remote
    ```
 4. Publique a Edge Function e defina o domínio de login:
    ```

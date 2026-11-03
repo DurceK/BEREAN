@@ -5,7 +5,7 @@
 -- Os patches 01 a 15 abaixo já foram todos aplicados e ficam só como histórico.
 --
 -- AGORA: cada mudança nova vira um arquivo em supabase/migrations/ e é aplicada com
---   npx.cmd supabase db push
+--   npx.cmd supabase db push --remote
 -- O banco completo (patches 01 a 15 incluídos) está em
 -- supabase/migrations/20261012000000_inicial.sql.
 

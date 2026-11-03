@@ -39,7 +39,7 @@
 - [x] **Versão por cliente (ícone, nome e cores)**: pasta `clientes/<cliente>/` com `cliente.json`, imagens e `.env`; trocar com `npm run cliente -- <pasta>` (passo a passo em `clientes/LEIAME.md`)
   - [x] Fontes por cliente: `clientes/<cliente>/fontes.ts`
 
-- [x] **Banco em migrations do Supabase CLI**: `supabase/migrations/` (a inicial junta os patches 01 a 15); mudança nova = arquivo novo + `npx.cmd supabase db push`
+- [x] **Banco em migrations do Supabase CLI**: `supabase/migrations/` (a inicial junta os patches 01 a 15); mudança nova = arquivo novo + `npx.cmd supabase db push --remote` (o CLI 3 sem --remote tenta um banco local)
   - [x] Marcar a migration inicial como aplicada no banco da Camila (`migration repair`)
   - [x] Testar a migration inicial num projeto Supabase vazio de teste (12/10/2026: `db push` criou o banco sem erros)
 
@@ -62,6 +62,7 @@ O produto está pronto para piloto; o que falta para vender é operacional: loja
 1. [ ] **App instalável** (13/10/2026: projeto @kaiquedurce/BEREAN no Expo, `eas.json` com perfil `preview` que gera APK e EAS Update ligado; falta testar o APK no celular). Gerar com EAS Build, testar no celular (TestFlight na Apple e teste interno no Google) e passar pela revisão das lojas. Até hoje quase tudo foi testado no navegador.
 2. [ ] **Supabase no plano Pro para clientes pagantes**: o free pausa após 7 dias sem uso e não tem backup automático. Decidir se os projetos ficam na organização da DurceK (um plano para todos, mais o custo de cada banco) ou na conta de cada cliente.
 3. [ ] **Parte legal**: política de privacidade publicada num endereço na internet (as lojas exigem), adequação à LGPD (nome, foto e desempenho dos alunos) e modelo de contrato (dono dos dados, suporte, cancelamento).
+   - [x] Termo de uso e privacidade no primeiro acesso do aluno (migration 20261102000000): menor de idade marcado pelo mentor; nesse caso aceita o responsável, com o nome registrado. Texto em `lib/termo.ts` é RASCUNHO: revisar com advogado
 4. [ ] **Área do mentor publicada na internet** (ver "Painel de administração online" acima).
 5. [ ] **Conferir a regra da Apple sobre apagar conta pelo app**: talvez não se aplique, porque quem cria as contas é o mentor, mas confirmar antes da revisão.
 6. [ ] **Empresa para emitir nota**: abrir CNPJ e confirmar com um contador o enquadramento (o MEI pode não aceitar desenvolvimento de software).

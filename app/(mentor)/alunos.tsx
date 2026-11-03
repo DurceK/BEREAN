@@ -15,6 +15,11 @@ import { useAuth } from '../../lib/auth';
 import { criarMentorado, gerarSenhaProvisoria, redefinirSenha } from '../../lib/adminUsuarios';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 import { FotoPessoa } from '../../components/FotoPessoa';
+import { BotaoCopiar, copiar } from '../../components/BotaoCopiar';
+import { cliente } from '../../lib/cliente';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { VERSAO_TERMO } from '../../lib/termo';
+import { formatarData } from '../../lib/datas';
 
 type Categoria = { id: string; nome: string };
 type Aluno = {
@@ -22,7 +27,10 @@ type Aluno = {
   nome: string;
   matricula: string;
   avatar_url: string | null;
+  menor_de_idade: boolean;
   categorias: string[];
+  // aceite da versão atual do termo de uso (null = ainda não aceitou)
+  aceite: { aceito_em: string; nome_responsavel: string | null } | null;
 };
 
 // Janela aberta no momento: cadastro, redefinição de senha, ou o aviso com os dados de acesso
@@ -47,6 +55,9 @@ export default function Alunos() {
   const [matricula, setMatricula] = useState('');
   const [senha, setSenha] = useState('');
   const [escolhidas, setEscolhidas] = useState<string[]>([]);
+  const [menor, setMenor] = useState(false);
+  // Resultado do botão "Copiar dados de acesso"
+  const [copiouAcesso, setCopiouAcesso] = useState<'sim' | 'falhou' | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erroJanela, setErroJanela] = useState<string | null>(null);
 
@@ -56,7 +67,9 @@ export default function Alunos() {
       supabase.from('categorias').select('id, nome').eq('mentor_id', usuario.id).order('nome'),
       supabase
         .from('inscricoes')
-        .select('categoria_id, usuarios(id, nome, matricula, avatar_url), categorias!inner(mentor_id)')
+        .select(
+          'categoria_id, usuarios(id, nome, matricula, avatar_url, menor_de_idade), categorias!inner(mentor_id)'
+        )
         .eq('categorias.mentor_id', usuario.id),
     ]);
 
@@ -68,11 +81,22 @@ export default function Alunos() {
 
     const porAluno = new Map<string, Aluno>();
     for (const linha of resInscricoes.data ?? []) {
-      const pessoa = linha.usuarios as unknown as Omit<Aluno, 'categorias'> | null;
+      const pessoa = linha.usuarios as unknown as Omit<Aluno, 'categorias' | 'aceite'> | null;
       if (!pessoa) continue;
-      const aluno = porAluno.get(pessoa.id) ?? { ...pessoa, categorias: [] };
+      const aluno = porAluno.get(pessoa.id) ?? { ...pessoa, categorias: [], aceite: null };
       aluno.categorias.push(linha.categoria_id);
       porAluno.set(pessoa.id, aluno);
+    }
+
+    // Quem já aceitou o termo de uso atual
+    const { data: aceites } = await supabase
+      .from('aceites_termo')
+      .select('usuario_id, aceito_em, nome_responsavel')
+      .eq('versao', VERSAO_TERMO)
+      .in('usuario_id', [...porAluno.keys()]);
+    for (const a of aceites ?? []) {
+      const aluno = porAluno.get(a.usuario_id);
+      if (aluno) aluno.aceite = { aceito_em: a.aceito_em, nome_responsavel: a.nome_responsavel };
     }
 
     setCategorias(resCategorias.data ?? []);
@@ -87,16 +111,22 @@ export default function Alunos() {
     }, [carregar])
   );
 
-  function abrirNovo() {
+  async function abrirNovo() {
     setNome('');
     setMatricula('');
     setSenha(gerarSenhaProvisoria());
     setEscolhidas(categorias.length === 1 ? [categorias[0].id] : []);
+    setMenor(false);
     setErroJanela(null);
+    setCopiouAcesso(null);
     setJanela({ tipo: 'novo' });
+    // Matrícula automática (AAMM + sequencial), calculada no banco; dá para editar se quiser
+    const { data } = await supabase.rpc('proxima_matricula');
+    if (typeof data === 'string') setMatricula((atual) => atual || data);
   }
 
   function abrirSenha(aluno: Aluno) {
+    setCopiouAcesso(null);
     setSenha(gerarSenhaProvisoria());
     setErroJanela(null);
     setJanela({ tipo: 'senha', aluno });
@@ -106,12 +136,26 @@ export default function Alunos() {
     setSalvando(true);
     setErroJanela(null);
     const { erro } = await criarMentorado({ nome, matricula, senha, categorias: escolhidas });
-    setSalvando(false);
     if (erro) {
+      setSalvando(false);
       setErroJanela(erro);
       return;
     }
-    setJanela({ tipo: 'entregar', nome: nome.trim(), matricula: matricula.trim().toLowerCase(), senha });
+    if (menor) {
+      const { data: novo } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('matricula', matricula.trim().toLowerCase())
+        .maybeSingle();
+      if (novo) await supabase.rpc('definir_menor_de_idade', { aluno: novo.id, menor: true });
+    }
+    setSalvando(false);
+    setJanela({
+      tipo: 'entregar',
+      nome: nome.trim(),
+      matricula: matricula.trim().toLowerCase(),
+      senha,
+    });
     await carregar();
   }
 
@@ -127,6 +171,35 @@ export default function Alunos() {
     setJanela({ tipo: 'entregar', nome: aluno.nome, matricula: aluno.matricula, senha });
   }
 
+  // Mensagem pronta para mandar ao aluno (WhatsApp, e-mail...)
+  async function copiarAcesso(dados: { nome: string; matricula: string; senha: string }) {
+    const linhas = [
+      `Olá, ${dados.nome.split(' ')[0]}! Seu acesso ao ${cliente.nome}:`,
+      '',
+      ...(cliente.site ? [`Endereço: ${cliente.site}`] : []),
+      `Matrícula: ${dados.matricula}`,
+      `Senha provisória: ${dados.senha}`,
+      '',
+      'No primeiro acesso você vai criar a sua própria senha.',
+    ];
+    try {
+      await copiar(linhas.join('\n'));
+      setCopiouAcesso('sim');
+    } catch {
+      setCopiouAcesso('falhou');
+    }
+  }
+
+  async function alternarMenor(aluno: Aluno) {
+    setErroLista(null);
+    const { error } = await supabase.rpc('definir_menor_de_idade', {
+      aluno: aluno.id,
+      menor: !aluno.menor_de_idade,
+    });
+    if (error) setErroLista('Não foi possível mudar a marcação de menor de idade.');
+    await carregar();
+  }
+
   async function alternarInscricao(aluno: Aluno, categoriaId: string) {
     setErroLista(null);
     const inscrito = aluno.categorias.includes(categoriaId);
@@ -136,14 +209,18 @@ export default function Alunos() {
           .delete()
           .eq('mentorado_id', aluno.id)
           .eq('categoria_id', categoriaId)
-      : await supabase.from('inscricoes').insert({ mentorado_id: aluno.id, categoria_id: categoriaId });
+      : await supabase
+          .from('inscricoes')
+          .insert({ mentorado_id: aluno.id, categoria_id: categoriaId });
     if (error) setErroLista('Não foi possível atualizar a inscrição.');
     await carregar();
   }
 
   function alternarEscolhida(categoriaId: string) {
     setEscolhidas((atual) =>
-      atual.includes(categoriaId) ? atual.filter((id) => id !== categoriaId) : [...atual, categoriaId]
+      atual.includes(categoriaId)
+        ? atual.filter((id) => id !== categoriaId)
+        : [...atual, categoriaId]
     );
   }
 
@@ -179,7 +256,10 @@ export default function Alunos() {
         <View key={aluno.id} style={estilos.card}>
           <View style={estilos.cardTopo}>
             <Link href={`/(mentor)/aluno/${aluno.id}`} asChild>
-              <Pressable style={estilos.cardPessoa} accessibilityLabel={`Ver como ${aluno.nome} está estudando`}>
+              <Pressable
+                style={estilos.cardPessoa}
+                accessibilityLabel={`Ver como ${aluno.nome} está estudando`}
+              >
                 <FotoPessoa nome={aluno.nome} caminho={aluno.avatar_url} />
                 <View style={estilos.cardInfo}>
                   <Text style={estilos.cardNome}>{aluno.nome}</Text>
@@ -201,7 +281,11 @@ export default function Alunos() {
               return (
                 <Pressable
                   key={categoria.id}
-                  style={[estilos.chip, inscrito && estilos.chipAtivo, ultima && estilos.chipTravado]}
+                  style={[
+                    estilos.chip,
+                    inscrito && estilos.chipAtivo,
+                    ultima && estilos.chipTravado,
+                  ]}
                   disabled={ultima}
                   onPress={() => alternarInscricao(aluno, categoria.id)}
                   accessibilityLabel={`${inscrito ? 'Tirar de' : 'Inscrever em'} ${categoria.nome}`}
@@ -214,10 +298,36 @@ export default function Alunos() {
               );
             })}
           </View>
+
+          <View style={estilos.termo}>
+            <Pressable
+              style={estilos.marcar}
+              onPress={() => alternarMenor(aluno)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: aluno.menor_de_idade }}
+            >
+              <Text style={estilos.marcarCaixa}>{aluno.menor_de_idade ? '☑' : '☐'}</Text>
+              <Text style={estilos.marcarTexto}>Menor de idade</Text>
+            </Pressable>
+            <Text style={[estilos.termoTexto, !aluno.aceite && { color: cores.erro }]}>
+              {aluno.aceite
+                ? `Termo aceito em ${formatarData(aluno.aceite.aceito_em)}${
+                    aluno.aceite.nome_responsavel
+                      ? ` pelo responsável ${aluno.aceite.nome_responsavel}`
+                      : ''
+                  }`
+                : 'Termo de uso ainda não aceito'}
+            </Text>
+          </View>
         </View>
       ))}
 
-      <Modal visible={janela !== null} transparent animationType="fade" onRequestClose={() => setJanela(null)}>
+      <Modal
+        visible={janela !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setJanela(null)}
+      >
         <View style={estilos.modalFundo}>
           <ScrollView contentContainerStyle={estilos.modalRolagem}>
             <View style={estilos.modalCaixa}>
@@ -236,29 +346,52 @@ export default function Alunos() {
                   />
 
                   <Text style={estilos.label}>Matrícula</Text>
-                  <TextInput
-                    style={estilos.input}
-                    value={matricula}
-                    onChangeText={setMatricula}
-                    placeholder="Ex: 260802"
-                    placeholderTextColor={cores.textoSuave}
-                    autoCapitalize="none"
-                  />
-                  <Text style={estilos.dica}>É o que o aluno vai digitar para entrar.</Text>
+                  <View style={estilos.linhaSenha}>
+                    <TextInput
+                      style={[estilos.input, estilos.inputSenha, estilos.somenteLeitura]}
+                      value={matricula}
+                      editable={false}
+                      placeholder="Gerando..."
+                      placeholderTextColor={cores.textoSuave}
+                    />
+                    <BotaoCopiar texto={matricula} rotulo="matrícula" />
+                  </View>
+                  <Text style={estilos.dica}>
+                    Gerada automaticamente (ano, mês e número do cadastro). É o que o aluno vai
+                    digitar para entrar.
+                  </Text>
 
                   <Text style={estilos.label}>Senha provisória</Text>
                   <View style={estilos.linhaSenha}>
                     <TextInput
-                      style={[estilos.input, estilos.inputSenha]}
+                      style={[estilos.input, estilos.inputSenha, estilos.somenteLeitura]}
                       value={senha}
-                      onChangeText={setSenha}
-                      autoCapitalize="none"
+                      editable={false}
                     />
-                    <Pressable style={estilos.botaoSecundario} onPress={() => setSenha(gerarSenhaProvisoria())}>
+                    <BotaoCopiar texto={senha} rotulo="senha" />
+                    <Pressable
+                      style={estilos.botaoSecundario}
+                      onPress={() => setSenha(gerarSenhaProvisoria())}
+                    >
                       <Text style={estilos.botaoSecundarioTexto}>Gerar outra</Text>
                     </Pressable>
                   </View>
-                  <Text style={estilos.dica}>O aluno troca por uma senha dele no primeiro acesso.</Text>
+                  <Text style={estilos.dica}>
+                    O aluno troca por uma senha dele no primeiro acesso.
+                  </Text>
+
+                  <Pressable
+                    style={estilos.marcar}
+                    onPress={() => setMenor((m) => !m)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: menor }}
+                  >
+                    <Text style={estilos.marcarCaixa}>{menor ? '☑' : '☐'}</Text>
+                    <Text style={estilos.marcarTexto}>Menor de idade</Text>
+                  </Pressable>
+                  <Text style={estilos.dica}>
+                    No primeiro acesso, quem aceita o termo de uso é o pai, a mãe ou o responsável.
+                  </Text>
 
                   <Text style={estilos.label}>Cursos</Text>
                   <View style={estilos.chips}>
@@ -285,7 +418,9 @@ export default function Alunos() {
                       <Text style={estilos.cancelar}>Cancelar</Text>
                     </Pressable>
                     <Pressable onPress={salvarNovo} disabled={salvando}>
-                      <Text style={estilos.confirmar}>{salvando ? 'Cadastrando...' : 'Cadastrar'}</Text>
+                      <Text style={estilos.confirmar}>
+                        {salvando ? 'Cadastrando...' : 'Cadastrar'}
+                      </Text>
                     </Pressable>
                   </View>
                 </>
@@ -300,12 +435,15 @@ export default function Alunos() {
                   </Text>
                   <View style={estilos.linhaSenha}>
                     <TextInput
-                      style={[estilos.input, estilos.inputSenha]}
+                      style={[estilos.input, estilos.inputSenha, estilos.somenteLeitura]}
                       value={senha}
-                      onChangeText={setSenha}
-                      autoCapitalize="none"
+                      editable={false}
                     />
-                    <Pressable style={estilos.botaoSecundario} onPress={() => setSenha(gerarSenhaProvisoria())}>
+                    <BotaoCopiar texto={senha} rotulo="senha" />
+                    <Pressable
+                      style={estilos.botaoSecundario}
+                      onPress={() => setSenha(gerarSenhaProvisoria())}
+                    >
                       <Text style={estilos.botaoSecundarioTexto}>Gerar outra</Text>
                     </Pressable>
                   </View>
@@ -315,7 +453,9 @@ export default function Alunos() {
                       <Text style={estilos.cancelar}>Cancelar</Text>
                     </Pressable>
                     <Pressable onPress={() => salvarSenha(janela.aluno)} disabled={salvando}>
-                      <Text style={estilos.confirmar}>{salvando ? 'Salvando...' : 'Redefinir'}</Text>
+                      <Text style={estilos.confirmar}>
+                        {salvando ? 'Salvando...' : 'Redefinir'}
+                      </Text>
                     </Pressable>
                   </View>
                 </>
@@ -327,19 +467,49 @@ export default function Alunos() {
                   <Text style={estilos.texto}>Passe estes dados para {janela.nome}:</Text>
                   <View style={estilos.acesso}>
                     <Text style={estilos.acessoRotulo}>Matrícula</Text>
-                    <Text style={estilos.acessoValor} selectable>
-                      {janela.matricula}
-                    </Text>
+                    <View style={estilos.linhaSenha}>
+                      <Text style={[estilos.acessoValor, estilos.acessoFlex]} selectable>
+                        {janela.matricula}
+                      </Text>
+                      <BotaoCopiar texto={janela.matricula} rotulo="matrícula" />
+                    </View>
                     <Text style={estilos.acessoRotulo}>Senha provisória</Text>
-                    <Text style={estilos.acessoValor} selectable>
-                      {janela.senha}
-                    </Text>
+                    <View style={estilos.linhaSenha}>
+                      <Text style={[estilos.acessoValor, estilos.acessoFlex]} selectable>
+                        {janela.senha}
+                      </Text>
+                      <BotaoCopiar texto={janela.senha} rotulo="senha" />
+                    </View>
                   </View>
                   <Text style={estilos.dica}>
                     Anote agora: por segurança, a senha não aparece de novo depois que você fechar.
                   </Text>
-                  <View style={estilos.modalBotoes}>
-                    <Pressable onPress={() => setJanela(null)}>
+                  {copiouAcesso === 'falhou' && (
+                    <Text style={estilos.erro}>
+                      Não foi possível copiar aqui. Selecione os dados acima e copie à mão.
+                    </Text>
+                  )}
+                  <View style={[estilos.modalBotoes, estilos.modalBotoesCentro]}>
+                    <Pressable
+                      style={[estilos.botaoPrincipal, estilos.botaoCopiarAcesso]}
+                      onPress={() => copiarAcesso(janela)}
+                      accessibilityLabel="Copiar os dados de acesso para mandar ao aluno"
+                    >
+                      <Ionicons
+                        name={copiouAcesso === 'sim' ? 'checkmark' : 'copy-outline'}
+                        size={18}
+                        color={cores.sobrePrimaria}
+                      />
+                      <Text style={estilos.botaoPrincipalTexto}>
+                        {copiouAcesso === 'sim' ? 'Copiado!' : 'Copiar dados de acesso'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setJanela(null);
+                        setCopiouAcesso(null);
+                      }}
+                    >
                       <Text style={estilos.confirmar}>Fechar</Text>
                     </Pressable>
                   </View>
@@ -357,7 +527,13 @@ const criarEstilos = (c: Cores) =>
   StyleSheet.create({
     fundo: { flex: 1, backgroundColor: c.fundo },
     container: { padding: 24, gap: 14, width: '100%', maxWidth: 720, alignSelf: 'center' },
-    topo: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 6 },
+    topo: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 16,
+      flexWrap: 'wrap',
+      marginBottom: 6,
+    },
     topoTexto: { flex: 1, minWidth: 220, gap: 6 },
     titulo: { fontFamily: fontes.titulo, fontSize: 22, color: c.texto },
     subtitulo: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20 },
@@ -419,6 +595,20 @@ const criarEstilos = (c: Cores) =>
     texto: { fontFamily: fontes.texto, color: c.texto, lineHeight: 20, marginBottom: 12 },
     label: { fontFamily: fontes.textoMedio, color: c.texto, marginTop: 12, marginBottom: 6 },
     dica: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, marginTop: 4 },
+    marcar: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+    marcarCaixa: { fontSize: 20, color: c.destaque },
+    marcarTexto: { fontFamily: fontes.textoMedio, color: c.texto },
+    termo: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      columnGap: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: c.borda,
+      marginTop: 4,
+    },
+    termoTexto: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, marginTop: 12 },
     input: {
       fontFamily: fontes.texto,
       borderWidth: 1,
@@ -430,6 +620,8 @@ const criarEstilos = (c: Cores) =>
     },
     linhaSenha: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     inputSenha: { flex: 1, minWidth: 0, fontFamily: fontes.textoForte, letterSpacing: 1 },
+    somenteLeitura: { backgroundColor: c.superficie },
+    acessoFlex: { flex: 1, minWidth: 0 },
     acesso: {
       backgroundColor: c.superficie,
       borderRadius: 8,
@@ -442,6 +634,8 @@ const criarEstilos = (c: Cores) =>
     acessoRotulo: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave, marginTop: 6 },
     acessoValor: { fontFamily: fontes.textoForte, fontSize: 20, color: c.texto, letterSpacing: 1 },
     modalBotoes: { flexDirection: 'row', justifyContent: 'flex-end', gap: 24, marginTop: 20 },
+    modalBotoesCentro: { alignItems: 'center' },
+    botaoCopiarAcesso: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     cancelar: { fontFamily: fontes.textoMedio, color: c.textoSuave },
     confirmar: { fontFamily: fontes.textoForte, color: c.destaque },
   });
