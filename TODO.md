@@ -80,3 +80,16 @@ O produto está pronto para piloto; o que falta para vender é operacional: loja
     - Avaliar começar só com Android + versão web para iPhone (evita a conta Apple de US$ 99/ano para o professor)
     - Supabase free: "despertador" diário FEITO em 03/11/2026 (`.github/workflows/despertador.yml`, segredos no GitHub); backup semanal automático ainda pendente (precisa de repositório privado); limite de 2 projetos grátis por conta (Camila + Danilo)
     - Faixas para clientes maiores (referência): implantação R$ 1.500–2.500; R$ 297 / 497 / 797 por até 50 / 200 / 500 alunos, já no Supabase Pro
+
+## Divulgação
+
+- [ ] **Vídeo promocional do app** (ideias de 03/11/2026)
+  - Formato: vertical 9:16, 45 a 60 s, legenda grande no meio, música animada baixa, cenas de 3 a 7 s
+  - Público: vender para outros professores/mentores (se for para divulgar curso a alunos, adaptar o roteiro)
+  - Roteiro em 10 cenas: login com logo → aluno ouve frase com 🔊 → velocidade 0,5x → exercício de digitar (erro e acerto) → ordenar/ligar → aula concluída e progresso → mentor em Relatórios/Erros recentes → aluno parado em vermelho → mentor editando aula → logo + contato ("Um app com a cara do seu curso. Fale comigo.")
+  - Ferramentas grátis: gravação de tela do celular e Win+Alt+R no PC; edição no CapCut (modelos de "app showcase", legendas, texto para fala com voz de IA) ou Canva (prints dentro de mockup de celular)
+  - NÃO mostrar alunos reais (LGPD): criar 2 ou 3 alunos fictícios com progresso e erros, gravar e depois excluir
+  - Pacote a preparar: lista de gravação cena por cena, script de dados fictícios, legendas prontas, narração, texto do post
+
+- [ ] **Botão "☕ Apoiar" no app** (ideia de 03/11/2026). O curso do Kaique é gratuito para pessoas carentes, e quem puder contribui com qualquer valor ("me paga um café"). Um botão discreto mostra a chave Pix (aleatória, para não expor CPF ou telefone) com botão de copiar. A chave fica configurável por cliente (`cliente.json`) ou por mentor. Cuidados: nunca condicionar acesso à contribuição, não lembrar quem contribuiu, e falar do assunto uma vez só.
+
