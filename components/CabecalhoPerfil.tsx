@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../lib/auth';
@@ -15,10 +15,18 @@ type Props = {
   estatisticas: Estatistica[];
   botao?: { texto: string; onPress: () => void };
   botaoSecundario?: { texto: string; onPress: () => void }; // ao lado do principal, só com contorno
+  embaixo?: ReactNode; // algo a mais logo abaixo dos botões (ex: Buy Me a Coffee)
 };
 
 // Topo das telas iniciais: faixa colorida, foto grande no centro, nome, números e um botão.
-export function CabecalhoPerfil({ area, papel, estatisticas, botao, botaoSecundario }: Props) {
+export function CabecalhoPerfil({
+  area,
+  papel,
+  estatisticas,
+  botao,
+  botaoSecundario,
+  embaixo,
+}: Props) {
   const { usuario, sair } = useAuth();
   const estilos = useEstilos(criarEstilos);
   const insets = useSafeAreaInsets();
@@ -72,6 +80,7 @@ export function CabecalhoPerfil({ area, papel, estatisticas, botao, botaoSecunda
             )}
           </View>
         )}
+        {embaixo}
       </View>
     </View>
   );

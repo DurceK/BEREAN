@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth';
 import { fontes, useEstilos, useTema, type Cores } from '../../lib/tema';
 import { CabecalhoPerfil } from '../../components/CabecalhoPerfil';
+import { BotaoBuyMeACoffee, type ChaveDoMentor } from '../../components/BuyMeACoffee';
 
 type AulaResumo = { id: string; titulo: string; ordem: number };
 type ModuloResumo = {
@@ -23,6 +24,8 @@ export default function MentoradoInicio() {
   const styles = useEstilos(criarEstilos);
   const [categorias, setCategorias] = useState<CategoriaResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
+  // Chave Pix dos mentores do aluno, para o botão "Buy Me a Coffee" (só quem cadastrou)
+  const [chavesPix, setChavesPix] = useState<ChaveDoMentor[]>([]);
   const [progresso, setProgresso] = useState<Record<string, string>>({});
   // Última aula aberta neste aparelho, para o botão "Continuar aula"
   const [ultimaAula, setUltimaAula] = useState<string | null>(null);
@@ -76,6 +79,7 @@ export default function MentoradoInicio() {
         .select(
           `categoria:categorias (
             id, nome,
+            mentor:usuarios ( nome, chave_pix ),
             modulos ( id, nome, ordem, aulas ( id, titulo, ordem ) )
           )`
         )
@@ -95,6 +99,17 @@ export default function MentoradoInicio() {
               })),
           }));
         setCategorias(lista);
+        const chaves = new Map<string, ChaveDoMentor>();
+        for (const linha of data ?? []) {
+          const mentor = (linha as any).categoria?.mentor as {
+            nome: string;
+            chave_pix: string | null;
+          } | null;
+          if (mentor?.chave_pix) {
+            chaves.set(mentor.chave_pix, { mentor: mentor.nome, chave: mentor.chave_pix });
+          }
+        }
+        setChavesPix([...chaves.values()]);
         setCarregando(false);
       }
     }
@@ -144,6 +159,7 @@ export default function MentoradoInicio() {
               }
             : undefined
         }
+        embaixo={<BotaoBuyMeACoffee chaves={chavesPix} />}
       />
 
       <View style={styles.container}>

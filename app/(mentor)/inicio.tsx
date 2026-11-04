@@ -19,6 +19,7 @@ import {
 } from '../../lib/conteudo';
 import { CabecalhoPerfil } from '../../components/CabecalhoPerfil';
 import { JanelaConfirmar, JanelaNome } from '../../components/Janelas';
+import { JanelaChavePix } from '../../components/BuyMeACoffee';
 
 type Aula = { id: string; titulo: string; ordem: number };
 type Modulo = { id: string; nome: string; ordem: number; aulas: Aula[] };
@@ -53,6 +54,9 @@ export default function MentorInicio() {
   const estilos = useEstilos(criarEstilos);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [janela, setJanela] = useState<Janela>(null);
+  // Chave Pix do "Buy Me a Coffee" (null = botão escondido para os alunos)
+  const [chavePix, setChavePix] = useState<string | null>(null);
+  const [editandoPix, setEditandoPix] = useState(false);
   // Cursos e módulos que a mentora deixou abertos (guardado só neste aparelho)
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const chaveAbertos = `berean:mentor:abertos:${usuario?.id ?? ''}`;
@@ -73,6 +77,12 @@ export default function MentorInicio() {
         .map((m) => ({ ...m, aulas: [...m.aulas].sort((a, b) => a.ordem - b.ordem) })),
     }));
     setCategorias(lista);
+    const { data: eu } = await supabase
+      .from('usuarios')
+      .select('chave_pix')
+      .eq('id', usuario.id)
+      .single();
+    setChavePix(eu?.chave_pix ?? null);
   }, [usuario]);
 
   // Recarrega ao voltar para a tela, para refletir o que mudou em outras telas
@@ -364,7 +374,35 @@ export default function MentorInicio() {
             </View>
           );
         })}
+
+        <Pressable
+          style={estilos.apoio}
+          onPress={() => setEditandoPix(true)}
+          accessibilityLabel="Configurar o botão Buy Me a Coffee"
+        >
+          <Ionicons name="cafe-outline" size={18} color={cores.destaque} />
+          <Text style={estilos.apoioTexto}>
+            Buy Me a Coffee: {chavePix ? 'chave Pix cadastrada' : 'desligado'}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={cores.textoSuave} />
+        </Pressable>
       </View>
+
+      {editandoPix && (
+        <JanelaChavePix
+          valorInicial={chavePix ?? ''}
+          onSalvar={async (nova) => {
+            const { error } = await supabase
+              .from('usuarios')
+              .update({ chave_pix: nova })
+              .eq('id', usuario!.id);
+            if (error) return 'Não foi possível salvar a chave. Tente de novo.';
+            setChavePix(nova);
+            return null;
+          }}
+          onFechar={() => setEditandoPix(false)}
+        />
+      )}
 
       {janela?.tipo === 'nome' && (
         <JanelaNome
@@ -501,5 +539,17 @@ const criarEstilos = (c: Cores) =>
       paddingVertical: 8,
       paddingHorizontal: 4,
     },
+    apoio: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginTop: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.borda,
+    },
+    apoioTexto: { flex: 1, minWidth: 0, fontFamily: fontes.textoMedio, color: c.texto },
     adicionarTexto: { fontFamily: fontes.textoForte, fontSize: 13, color: c.destaque },
   });
