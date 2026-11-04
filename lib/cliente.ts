@@ -16,5 +16,8 @@ export const cliente: Cliente = dados;
 
 export const logoDoCliente = require('@cliente/logo.png');
 
+// Ícone do app (no site, vira o ícone de "Adicionar à Tela de Início")
+export const iconeDoCliente = require('@cliente/icon.png');
+
 // Arquivos de fonte de cada papel (titulo, tituloLeve, texto, textoMedio, textoForte)
 export const fontesDoCliente = fontes;

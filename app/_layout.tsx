@@ -7,12 +7,15 @@ import { useFonts } from 'expo-font';
 import { AuthProvider, useAuth } from '../lib/auth';
 import { fontesDoCliente } from '../lib/cliente';
 import { useTema } from '../lib/tema';
+import { useAparenciaWeb } from '../lib/aparenciaWeb';
 
 SplashScreen.preventAutoHideAsync();
 
 function RaizProtegida() {
   const { session, usuario, isLoading } = useAuth();
   const { cores } = useTema();
+  // No site: cor das barras do navegador, nome e ícone da tela de início
+  useAparenciaWeb();
 
   if (isLoading) {
     return (
