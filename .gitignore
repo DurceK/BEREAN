@@ -47,3 +47,7 @@ clientes/*/conteudo/
 # apps gerados (APK/AAB): ficam no Drive, não no GitHub
 *.apk
 *.aab
+
+# gerados pelo app.config.ts a partir do cliente escolhido
+public/manifest.webmanifest
+public/icone-app.png
