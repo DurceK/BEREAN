@@ -176,6 +176,219 @@ export default function EditorExercicio() {
 
   const ajudaDoTipo = rascunho ? TIPOS.find((t) => t.tipo === rascunho.tipo)?.ajuda : null;
 
+  // Formulário da pergunta em edição: aparece no lugar do cartão dela (ou no fim, se for nova)
+  const formulario = rascunho && (
+    <View style={[estilos.cartao, estilos.editando]}>
+      <Text style={estilos.rotulo}>{rascunho.id ? 'Editar pergunta' : 'Nova pergunta'}</Text>
+
+      {/* O tipo só é escolhido ao criar; depois fica fixo */}
+      {rascunho.id ? (
+        <Text style={estilos.tipo}>{nomeDoTipo(rascunho.tipo)}</Text>
+      ) : (
+        <View style={estilos.tipos}>
+          {TIPOS.map((t) => (
+            <Pressable
+              key={t.tipo}
+              style={[estilos.chip, rascunho.tipo === t.tipo && estilos.chipAtivo]}
+              onPress={() => alterar({ tipo: t.tipo })}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: rascunho.tipo === t.tipo }}
+            >
+              <Text style={[estilos.chipTexto, rascunho.tipo === t.tipo && estilos.chipTextoAtivo]}>
+                {t.nome}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      {!!ajudaDoTipo && <Text style={estilos.ajuda}>{ajudaDoTipo}</Text>}
+
+      <Text style={estilos.label}>Enunciado</Text>
+      <TextInput
+        style={[estilos.input, estilos.inputGrande]}
+        value={rascunho.enunciado}
+        onChangeText={(enunciado) => alterar({ enunciado })}
+        placeholder={EXEMPLOS[rascunho.tipo]}
+        placeholderTextColor={cores.textoSuave}
+        multiline
+      />
+
+      {rascunho.tipo === 'multipla_escolha' && (
+        <>
+          <Text style={estilos.label}>Alternativas (toque no círculo para marcar a certa)</Text>
+          {rascunho.alternativas.map((alternativa, i) => {
+            const marcada = rascunho.indiceCorreta === i;
+            return (
+              <View key={alternativa.id ?? `nova-${i}`} style={estilos.linha}>
+                <Pressable
+                  style={[estilos.radio, marcada && estilos.radioMarcado]}
+                  onPress={() => alterar({ indiceCorreta: i })}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: marcada }}
+                  accessibilityLabel={`Marcar ${LETRAS[i]} como certa`}
+                >
+                  {marcada && <Text style={estilos.radioTexto}>✓</Text>}
+                </Pressable>
+                <TextInput
+                  style={[estilos.input, estilos.inputLinha]}
+                  value={alternativa.texto}
+                  onChangeText={(texto) => alterarAlternativa(i, texto)}
+                  placeholder={`Alternativa ${LETRAS[i]}`}
+                  placeholderTextColor={cores.textoSuave}
+                />
+                {rascunho.alternativas.length > MIN_ALTERNATIVAS && (
+                  <BotaoRemover
+                    rotulo={`Remover alternativa ${LETRAS[i]}`}
+                    onPress={() => removerAlternativa(i)}
+                  />
+                )}
+              </View>
+            );
+          })}
+          {rascunho.alternativas.length < MAX_ALTERNATIVAS && (
+            <Pressable
+              onPress={() =>
+                alterar({
+                  alternativas: [...rascunho.alternativas, { texto: '' }],
+                })
+              }
+            >
+              <Text style={estilos.acao}>+ Alternativa</Text>
+            </Pressable>
+          )}
+        </>
+      )}
+
+      {rascunho.tipo === 'digitar' && (
+        <>
+          <Text style={estilos.label}>
+            Respostas aceitas (a primeira é a que o aluno vê se errar)
+          </Text>
+          {rascunho.aceitas.map((aceita, i) => (
+            <View key={i} style={estilos.linha}>
+              <TextInput
+                style={[estilos.input, estilos.inputLinha]}
+                value={aceita}
+                onChangeText={(texto) =>
+                  alterar({
+                    aceitas: rascunho.aceitas.map((a, j) => (j === i ? texto : a)),
+                  })
+                }
+                placeholder={i === 0 ? 'Ex: Good morning.' : 'Outra forma aceita'}
+                placeholderTextColor={cores.textoSuave}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {rascunho.aceitas.length > 1 && (
+                <BotaoRemover
+                  rotulo="Remover resposta"
+                  onPress={() =>
+                    alterar({
+                      aceitas: rascunho.aceitas.filter((_, j) => j !== i),
+                    })
+                  }
+                />
+              )}
+            </View>
+          ))}
+          {rascunho.aceitas.length < MAX_ACEITAS && (
+            <Pressable onPress={() => alterar({ aceitas: [...rascunho.aceitas, ''] })}>
+              <Text style={estilos.acao}>+ Outra resposta aceita</Text>
+            </Pressable>
+          )}
+        </>
+      )}
+
+      {rascunho.tipo === 'ordenar' && (
+        <>
+          <Text style={estilos.label}>Frase na ordem certa</Text>
+          <TextInput
+            style={estilos.input}
+            value={rascunho.frase}
+            onChangeText={(frase) => alterar({ frase })}
+            placeholder="Ex: My name is John."
+            placeholderTextColor={cores.textoSuave}
+            autoCorrect={false}
+          />
+        </>
+      )}
+
+      {rascunho.tipo === 'ligar' && (
+        <>
+          <Text style={estilos.label}>Pares (esquerda ↔ direita)</Text>
+          {rascunho.pares.map((par, i) => (
+            <View key={i} style={estilos.linha}>
+              <TextInput
+                style={[estilos.input, estilos.inputLinha]}
+                value={par.esquerda}
+                onChangeText={(esquerda) =>
+                  alterar({
+                    pares: rascunho.pares.map((p, j) => (j === i ? { ...p, esquerda } : p)),
+                  })
+                }
+                placeholder="Ex: Take care!"
+                placeholderTextColor={cores.textoSuave}
+                autoCorrect={false}
+              />
+              <Text style={estilos.seta}>↔</Text>
+              <TextInput
+                style={[estilos.input, estilos.inputLinha]}
+                value={par.direita}
+                onChangeText={(direita) =>
+                  alterar({
+                    pares: rascunho.pares.map((p, j) => (j === i ? { ...p, direita } : p)),
+                  })
+                }
+                placeholder="Ex: Se cuida!"
+                placeholderTextColor={cores.textoSuave}
+                autoCorrect={false}
+              />
+              {rascunho.pares.length > MIN_PARES && (
+                <BotaoRemover
+                  rotulo="Remover par"
+                  onPress={() => alterar({ pares: rascunho.pares.filter((_, j) => j !== i) })}
+                />
+              )}
+            </View>
+          ))}
+          {rascunho.pares.length < MAX_PARES && (
+            <Pressable
+              onPress={() =>
+                alterar({
+                  pares: [...rascunho.pares, { esquerda: '', direita: '' }],
+                })
+              }
+            >
+              <Text style={estilos.acao}>+ Par</Text>
+            </Pressable>
+          )}
+        </>
+      )}
+
+      <Text style={estilos.label}>Explicação (opcional)</Text>
+      <TextInput
+        style={[estilos.input, estilos.inputGrande]}
+        value={rascunho.explicacao}
+        onChangeText={(explicacao) => alterar({ explicacao })}
+        placeholder="Aparece para o aluno depois que ele responde"
+        placeholderTextColor={cores.textoSuave}
+        multiline
+      />
+
+      {erroRascunho && <Text style={estilos.erro}>{erroRascunho}</Text>}
+      <View style={estilos.acoes}>
+        <Pressable onPress={() => setRascunho(null)}>
+          <Text style={estilos.cancelar}>Cancelar</Text>
+        </Pressable>
+        <Pressable style={estilos.botaoSalvar} onPress={salvar} disabled={salvando}>
+          <Text style={estilos.botaoSalvarTexto}>
+            {salvando ? 'Salvando...' : 'Salvar pergunta'}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
   return (
     <ScrollView style={estilos.fundo} contentContainerStyle={estilos.container}>
       <TextInput
@@ -202,7 +415,9 @@ export default function EditorExercicio() {
       )}
 
       {questoes.map((questao, numero) =>
-        rascunho?.id === questao.id ? null : (
+        rascunho?.id === questao.id ? (
+          <View key={questao.id}>{formulario}</View>
+        ) : (
           <View key={questao.id} style={estilos.cartao}>
             <Text style={estilos.tipo}>{nomeDoTipo(questao.tipo)}</Text>
             <Text style={estilos.enunciado}>
@@ -228,213 +443,7 @@ export default function EditorExercicio() {
         )
       )}
 
-      {rascunho && (
-        <View style={[estilos.cartao, estilos.editando]}>
-          <Text style={estilos.rotulo}>{rascunho.id ? 'Editar pergunta' : 'Nova pergunta'}</Text>
-
-          {/* O tipo só é escolhido ao criar; depois fica fixo */}
-          {rascunho.id ? (
-            <Text style={estilos.tipo}>{nomeDoTipo(rascunho.tipo)}</Text>
-          ) : (
-            <View style={estilos.tipos}>
-              {TIPOS.map((t) => (
-                <Pressable
-                  key={t.tipo}
-                  style={[estilos.chip, rascunho.tipo === t.tipo && estilos.chipAtivo]}
-                  onPress={() => alterar({ tipo: t.tipo })}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: rascunho.tipo === t.tipo }}
-                >
-                  <Text
-                    style={[estilos.chipTexto, rascunho.tipo === t.tipo && estilos.chipTextoAtivo]}
-                  >
-                    {t.nome}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          )}
-          {!!ajudaDoTipo && <Text style={estilos.ajuda}>{ajudaDoTipo}</Text>}
-
-          <Text style={estilos.label}>Enunciado</Text>
-          <TextInput
-            style={[estilos.input, estilos.inputGrande]}
-            value={rascunho.enunciado}
-            onChangeText={(enunciado) => alterar({ enunciado })}
-            placeholder={EXEMPLOS[rascunho.tipo]}
-            placeholderTextColor={cores.textoSuave}
-            multiline
-          />
-
-          {rascunho.tipo === 'multipla_escolha' && (
-            <>
-              <Text style={estilos.label}>Alternativas (toque no círculo para marcar a certa)</Text>
-              {rascunho.alternativas.map((alternativa, i) => {
-                const marcada = rascunho.indiceCorreta === i;
-                return (
-                  <View key={alternativa.id ?? `nova-${i}`} style={estilos.linha}>
-                    <Pressable
-                      style={[estilos.radio, marcada && estilos.radioMarcado]}
-                      onPress={() => alterar({ indiceCorreta: i })}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: marcada }}
-                      accessibilityLabel={`Marcar ${LETRAS[i]} como certa`}
-                    >
-                      {marcada && <Text style={estilos.radioTexto}>✓</Text>}
-                    </Pressable>
-                    <TextInput
-                      style={[estilos.input, estilos.inputLinha]}
-                      value={alternativa.texto}
-                      onChangeText={(texto) => alterarAlternativa(i, texto)}
-                      placeholder={`Alternativa ${LETRAS[i]}`}
-                      placeholderTextColor={cores.textoSuave}
-                    />
-                    {rascunho.alternativas.length > MIN_ALTERNATIVAS && (
-                      <BotaoRemover
-                        rotulo={`Remover alternativa ${LETRAS[i]}`}
-                        onPress={() => removerAlternativa(i)}
-                      />
-                    )}
-                  </View>
-                );
-              })}
-              {rascunho.alternativas.length < MAX_ALTERNATIVAS && (
-                <Pressable
-                  onPress={() =>
-                    alterar({ alternativas: [...rascunho.alternativas, { texto: '' }] })
-                  }
-                >
-                  <Text style={estilos.acao}>+ Alternativa</Text>
-                </Pressable>
-              )}
-            </>
-          )}
-
-          {rascunho.tipo === 'digitar' && (
-            <>
-              <Text style={estilos.label}>
-                Respostas aceitas (a primeira é a que o aluno vê se errar)
-              </Text>
-              {rascunho.aceitas.map((aceita, i) => (
-                <View key={i} style={estilos.linha}>
-                  <TextInput
-                    style={[estilos.input, estilos.inputLinha]}
-                    value={aceita}
-                    onChangeText={(texto) =>
-                      alterar({
-                        aceitas: rascunho.aceitas.map((a, j) => (j === i ? texto : a)),
-                      })
-                    }
-                    placeholder={i === 0 ? 'Ex: Good morning.' : 'Outra forma aceita'}
-                    placeholderTextColor={cores.textoSuave}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                  />
-                  {rascunho.aceitas.length > 1 && (
-                    <BotaoRemover
-                      rotulo="Remover resposta"
-                      onPress={() =>
-                        alterar({ aceitas: rascunho.aceitas.filter((_, j) => j !== i) })
-                      }
-                    />
-                  )}
-                </View>
-              ))}
-              {rascunho.aceitas.length < MAX_ACEITAS && (
-                <Pressable onPress={() => alterar({ aceitas: [...rascunho.aceitas, ''] })}>
-                  <Text style={estilos.acao}>+ Outra resposta aceita</Text>
-                </Pressable>
-              )}
-            </>
-          )}
-
-          {rascunho.tipo === 'ordenar' && (
-            <>
-              <Text style={estilos.label}>Frase na ordem certa</Text>
-              <TextInput
-                style={estilos.input}
-                value={rascunho.frase}
-                onChangeText={(frase) => alterar({ frase })}
-                placeholder="Ex: My name is John."
-                placeholderTextColor={cores.textoSuave}
-                autoCorrect={false}
-              />
-            </>
-          )}
-
-          {rascunho.tipo === 'ligar' && (
-            <>
-              <Text style={estilos.label}>Pares (esquerda ↔ direita)</Text>
-              {rascunho.pares.map((par, i) => (
-                <View key={i} style={estilos.linha}>
-                  <TextInput
-                    style={[estilos.input, estilos.inputLinha]}
-                    value={par.esquerda}
-                    onChangeText={(esquerda) =>
-                      alterar({
-                        pares: rascunho.pares.map((p, j) => (j === i ? { ...p, esquerda } : p)),
-                      })
-                    }
-                    placeholder="Ex: Take care!"
-                    placeholderTextColor={cores.textoSuave}
-                    autoCorrect={false}
-                  />
-                  <Text style={estilos.seta}>↔</Text>
-                  <TextInput
-                    style={[estilos.input, estilos.inputLinha]}
-                    value={par.direita}
-                    onChangeText={(direita) =>
-                      alterar({
-                        pares: rascunho.pares.map((p, j) => (j === i ? { ...p, direita } : p)),
-                      })
-                    }
-                    placeholder="Ex: Se cuida!"
-                    placeholderTextColor={cores.textoSuave}
-                    autoCorrect={false}
-                  />
-                  {rascunho.pares.length > MIN_PARES && (
-                    <BotaoRemover
-                      rotulo="Remover par"
-                      onPress={() => alterar({ pares: rascunho.pares.filter((_, j) => j !== i) })}
-                    />
-                  )}
-                </View>
-              ))}
-              {rascunho.pares.length < MAX_PARES && (
-                <Pressable
-                  onPress={() =>
-                    alterar({ pares: [...rascunho.pares, { esquerda: '', direita: '' }] })
-                  }
-                >
-                  <Text style={estilos.acao}>+ Par</Text>
-                </Pressable>
-              )}
-            </>
-          )}
-
-          <Text style={estilos.label}>Explicação (opcional)</Text>
-          <TextInput
-            style={[estilos.input, estilos.inputGrande]}
-            value={rascunho.explicacao}
-            onChangeText={(explicacao) => alterar({ explicacao })}
-            placeholder="Aparece para o aluno depois que ele responde"
-            placeholderTextColor={cores.textoSuave}
-            multiline
-          />
-
-          {erroRascunho && <Text style={estilos.erro}>{erroRascunho}</Text>}
-          <View style={estilos.acoes}>
-            <Pressable onPress={() => setRascunho(null)}>
-              <Text style={estilos.cancelar}>Cancelar</Text>
-            </Pressable>
-            <Pressable style={estilos.botaoSalvar} onPress={salvar} disabled={salvando}>
-              <Text style={estilos.botaoSalvarTexto}>
-                {salvando ? 'Salvando...' : 'Salvar pergunta'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
+      {rascunho && !rascunho.id && formulario}
 
       {!rascunho && (
         <Pressable style={estilos.botaoNova} onPress={nova}>
@@ -519,7 +528,13 @@ const criarEstilos = (c: Cores) =>
   StyleSheet.create({
     fundo: { flex: 1, backgroundColor: c.fundo },
     centro: { justifyContent: 'center', alignItems: 'center' },
-    container: { padding: 24, gap: 14, width: '100%', maxWidth: 720, alignSelf: 'center' },
+    container: {
+      padding: 24,
+      gap: 14,
+      width: '100%',
+      maxWidth: 720,
+      alignSelf: 'center',
+    },
     titulo: { fontFamily: fontes.titulo, fontSize: 22, color: c.texto },
     tituloEditavel: {
       borderBottomWidth: 1,
@@ -527,7 +542,11 @@ const criarEstilos = (c: Cores) =>
       paddingVertical: 6,
     },
     aviso: { fontFamily: fontes.texto, fontSize: 12, color: c.textoSuave },
-    subtitulo: { fontFamily: fontes.texto, color: c.textoSuave, lineHeight: 20 },
+    subtitulo: {
+      fontFamily: fontes.texto,
+      color: c.textoSuave,
+      lineHeight: 20,
+    },
     erro: { fontFamily: fontes.texto, color: c.erro },
     vazio: { fontFamily: fontes.texto, color: c.textoSuave },
     cartao: {
@@ -557,11 +576,29 @@ const criarEstilos = (c: Cores) =>
     chipAtivo: { borderColor: c.destaque, backgroundColor: c.primaria },
     chipTexto: { fontFamily: fontes.textoMedio, fontSize: 13, color: c.texto },
     chipTextoAtivo: { color: c.sobrePrimaria },
-    ajuda: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave, lineHeight: 19 },
-    enunciado: { fontFamily: fontes.textoForte, color: c.texto, lineHeight: 22 },
-    alternativa: { fontFamily: fontes.texto, color: c.textoSuave, marginLeft: 8 },
+    ajuda: {
+      fontFamily: fontes.texto,
+      fontSize: 13,
+      color: c.textoSuave,
+      lineHeight: 19,
+    },
+    enunciado: {
+      fontFamily: fontes.textoForte,
+      color: c.texto,
+      lineHeight: 22,
+    },
+    alternativa: {
+      fontFamily: fontes.texto,
+      color: c.textoSuave,
+      marginLeft: 8,
+    },
     certa: { fontFamily: fontes.textoForte, color: c.destaque },
-    explicacao: { fontFamily: fontes.texto, fontSize: 13, color: c.textoSuave, marginTop: 4 },
+    explicacao: {
+      fontFamily: fontes.texto,
+      fontSize: 13,
+      color: c.textoSuave,
+      marginTop: 4,
+    },
     acoes: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -603,7 +640,12 @@ const criarEstilos = (c: Cores) =>
     radioMarcado: { borderColor: c.destaque, backgroundColor: c.primaria },
     radioTexto: { fontSize: 13, color: c.sobrePrimaria },
     inputLinha: { flex: 1, minWidth: 0 },
-    remover: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+    remover: {
+      width: 32,
+      height: 32,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     removerTexto: { fontFamily: fontes.textoForte, fontSize: 15 },
     cancelar: { fontFamily: fontes.textoMedio, color: c.textoSuave },
     botaoSalvar: {
