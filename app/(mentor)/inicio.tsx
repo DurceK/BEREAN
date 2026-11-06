@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView, Platform } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +20,7 @@ import {
 import { CabecalhoPerfil } from '../../components/CabecalhoPerfil';
 import { JanelaConfirmar, JanelaNome } from '../../components/Janelas';
 import { JanelaChavePix } from '../../components/BuyMeACoffee';
+import { JanelaImportar } from '../../components/JanelaImportar';
 
 type Aula = { id: string; titulo: string; ordem: number };
 type Modulo = { id: string; nome: string; ordem: number; aulas: Aula[] };
@@ -57,6 +58,8 @@ export default function MentorInicio() {
   // Chave Pix do "Buy Me a Coffee" (null = botão escondido para os alunos)
   const [chavePix, setChavePix] = useState<string | null>(null);
   const [editandoPix, setEditandoPix] = useState(false);
+  // Curso que está recebendo uma importação de aulas (só no site)
+  const [importando, setImportando] = useState<Categoria | null>(null);
   // Cursos e módulos que a mentora deixou abertos (guardado só neste aparelho)
   const [abertos, setAbertos] = useState<Record<string, boolean>>({});
   const chaveAbertos = `berean:mentor:abertos:${usuario?.id ?? ''}`;
@@ -245,6 +248,14 @@ export default function MentorInicio() {
                     </Text>
                   </View>
                 </Pressable>
+                {Platform.OS === 'web' && (
+                  <Icone
+                    icone="cloud-upload-outline"
+                    rotulo={`Importar aulas em ${categoria.nome}`}
+                    onPress={() => setImportando(categoria)}
+                    estilos={estilos}
+                  />
+                )}
                 <Icone
                   icone="create-outline"
                   rotulo={`Renomear ${categoria.nome}`}
@@ -401,6 +412,18 @@ export default function MentorInicio() {
             return null;
           }}
           onFechar={() => setEditandoPix(false)}
+        />
+      )}
+
+      {importando && (
+        <JanelaImportar
+          curso={importando}
+          modulos={importando.modulos}
+          onImportado={() => {
+            definirAberto(importando.id, true);
+            carregar();
+          }}
+          onFechar={() => setImportando(null)}
         />
       )}
 
