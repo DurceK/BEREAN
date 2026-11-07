@@ -206,7 +206,11 @@ const novoId = () => crypto.randomUUID();
 
 async function inserir(tabela: string, linhas: object[]) {
   for (let i = 0; i < linhas.length; i += 500) {
-    const { error } = await supabase.from(tabela).insert(linhas.slice(i, i + 500));
+    // defaultToNull: false -> campo ausente numa linha (ex.: id das palavras do ordenar)
+    // usa o padrão da coluna, e não nulo
+    const { error } = await supabase
+      .from(tabela)
+      .insert(linhas.slice(i, i + 500), { defaultToNull: false });
     if (error) throw error;
   }
 }
@@ -323,11 +327,12 @@ export async function importarNoCurso(
     await inserir('respostas_aceitas', aceitas);
     await inserir('pares_corretos', pares);
     return null;
-  } catch {
+  } catch (e) {
     // Desfaz: apagar as aulas e os módulos novos leva junto tudo o que veio depois
     if (idsAulas.length) await supabase.from('aulas').delete().in('id', idsAulas);
     if (idsModulosNovos.length) await supabase.from('modulos').delete().in('id', idsModulosNovos);
-    return 'Não foi possível importar. Nada foi gravado. Tente de novo.';
+    const detalhe = (e as { message?: string })?.message;
+    return `Não foi possível importar. Nada foi gravado. Tente de novo.${detalhe ? `\n(Detalhe: ${detalhe})` : ''}`;
   }
 }
 
