@@ -73,7 +73,7 @@ export default function Alunos() {
 
   const carregar = useCallback(async () => {
     if (!usuario) return;
-    const [resCategorias, resInscricoes] = await Promise.all([
+    const [resCategorias, resInscricoes, resResponsavel] = await Promise.all([
       supabase.from('categorias').select('id, nome').eq('mentor_id', usuario.id).order('nome'),
       supabase
         .from('inscricoes')
@@ -81,9 +81,15 @@ export default function Alunos() {
           'categoria_id, usuarios(id, nome, matricula, avatar_url, menor_de_idade), categorias!inner(mentor_id)'
         )
         .eq('categorias.mentor_id', usuario.id),
+      // Alunos que este mentor cadastrou: aparecem mesmo sem nenhum curso
+      supabase
+        .from('usuarios')
+        .select('id, nome, matricula, avatar_url, menor_de_idade')
+        .eq('papel', 'mentorado')
+        .eq('mentor_responsavel', usuario.id),
     ]);
 
-    if (resCategorias.error || resInscricoes.error) {
+    if (resCategorias.error || resInscricoes.error || resResponsavel.error) {
       setErroLista('Não foi possível carregar os alunos.');
       setCarregando(false);
       return;
@@ -96,6 +102,10 @@ export default function Alunos() {
       const aluno = porAluno.get(pessoa.id) ?? { ...pessoa, categorias: [], aceite: null };
       aluno.categorias.push(linha.categoria_id);
       porAluno.set(pessoa.id, aluno);
+    }
+    for (const pessoa of resResponsavel.data ?? []) {
+      if (!porAluno.has(pessoa.id))
+        porAluno.set(pessoa.id, { ...pessoa, categorias: [], aceite: null });
     }
 
     // Quem já aceitou o termo de uso atual
@@ -293,6 +303,11 @@ export default function Alunos() {
                 <View style={estilos.cardInfo}>
                   <Text style={estilos.cardNome}>{aluno.nome}</Text>
                   <Text style={estilos.cardMatricula}>Matrícula {aluno.matricula}</Text>
+                  {aluno.categorias.length === 0 && (
+                    <Text style={[estilos.cardMatricula, { color: cores.erro }]}>
+                      Sem curso: marque um curso abaixo para devolver o acesso
+                    </Text>
+                  )}
                   <Text style={estilos.cardLink}>Ver progresso ›</Text>
                 </View>
               </Pressable>
@@ -305,17 +320,10 @@ export default function Alunos() {
           <View style={estilos.chips}>
             {categorias.map((categoria) => {
               const inscrito = aluno.categorias.includes(categoria.id);
-              // tirar o último curso faria o aluno sumir desta lista
-              const ultima = inscrito && aluno.categorias.length === 1;
               return (
                 <Pressable
                   key={categoria.id}
-                  style={[
-                    estilos.chip,
-                    inscrito && estilos.chipAtivo,
-                    ultima && estilos.chipTravado,
-                  ]}
-                  disabled={ultima}
+                  style={[estilos.chip, inscrito && estilos.chipAtivo]}
                   onPress={() => alternarInscricao(aluno, categoria.id)}
                   accessibilityLabel={`${inscrito ? 'Tirar de' : 'Inscrever em'} ${categoria.nome}`}
                 >
@@ -695,7 +703,6 @@ const criarEstilos = (c: Cores) =>
       borderColor: c.borda,
     },
     chipAtivo: { backgroundColor: c.primaria, borderColor: c.primaria },
-    chipTravado: { opacity: 0.75 },
     chipTexto: { fontFamily: fontes.textoMedio, fontSize: 13, color: c.texto },
     chipTextoAtivo: { color: c.sobrePrimaria },
     modalFundo: { flex: 1, backgroundColor: c.sobreposicao },

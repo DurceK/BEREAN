@@ -137,6 +137,7 @@ async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) 
     nome,
     papel: 'mentorado',
     precisa_trocar_senha: true,
+    mentor_responsavel: mentorId,
   });
   if (erroCadastro) {
     await admin.auth.admin.deleteUser(alunoId);
@@ -153,6 +154,18 @@ async function criarMentorado(mentorId: string, corpo: Record<string, unknown>) 
   }
 
   return resposta({ id: alunoId });
+}
+
+// O mentor responsável (quem cadastrou) mantém o aluno mesmo quando ele fica sem curso
+async function eResponsavel(alunoId: string, mentorId: string) {
+  const { data } = await admin
+    .from('usuarios')
+    .select('id')
+    .eq('id', alunoId)
+    .eq('papel', 'mentorado')
+    .eq('mentor_responsavel', mentorId)
+    .maybeSingle();
+  return !!data;
 }
 
 async function redefinirSenha(mentorId: string, corpo: Record<string, unknown>) {
@@ -173,8 +186,8 @@ async function redefinirSenha(mentorId: string, corpo: Record<string, unknown>) 
     .eq('mentorado_id', alunoId)
     .eq('categorias.mentor_id', mentorId)
     .limit(1);
-  if (!vinculo || vinculo.length === 0) {
-    return resposta({ erro: 'Este aluno não está inscrito em nenhum curso seu.' }, 403);
+  if ((!vinculo || vinculo.length === 0) && !(await eResponsavel(alunoId, mentorId))) {
+    return resposta({ erro: 'Este aluno não é seu.' }, 403);
   }
 
   const { error: erroSenha } = await admin.auth.admin.updateUserById(alunoId, { password: senha });
@@ -197,7 +210,7 @@ async function excluirMentorado(mentorId: string, corpo: Record<string, unknown>
 
   const { data: aluno } = await admin
     .from('usuarios')
-    .select('matricula, papel')
+    .select('matricula, papel, mentor_responsavel')
     .eq('id', alunoId)
     .maybeSingle();
   if (!aluno || aluno.papel !== 'mentorado') {
@@ -214,11 +227,13 @@ async function excluirMentorado(mentorId: string, corpo: Record<string, unknown>
   const minhas = (inscricoes ?? []).filter(
     (i) => (i.categorias as unknown as { mentor_id: string }).mentor_id === mentorId
   );
-  if (minhas.length === 0) {
-    return resposta({ erro: 'Este aluno não está inscrito em nenhum curso seu.' }, 403);
+  const responsavel = aluno.mentor_responsavel === mentorId;
+  if (minhas.length === 0 && !responsavel) {
+    return resposta({ erro: 'Este aluno não é seu.' }, 403);
   }
 
-  if (minhas.length < (inscricoes ?? []).length) {
+  const outras = (inscricoes ?? []).filter((i) => !minhas.includes(i));
+  if (outras.length > 0) {
     const { error } = await admin
       .from('inscricoes')
       .delete()
@@ -227,6 +242,11 @@ async function excluirMentorado(mentorId: string, corpo: Record<string, unknown>
         minhas.map((i) => i.id)
       );
     if (error) return resposta({ erro: 'Não foi possível tirar o aluno dos seus cursos.' }, 500);
+    // O aluno fica com o outro mentor: a responsabilidade passa para ele
+    if (responsavel) {
+      const outroMentor = (outras[0].categorias as unknown as { mentor_id: string }).mentor_id;
+      await admin.from('usuarios').update({ mentor_responsavel: outroMentor }).eq('id', alunoId);
+    }
     return resposta({ ok: true, parcial: true });
   }
 
